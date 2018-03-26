@@ -1,32 +1,40 @@
 {
-    "name": "vdb/php-spider",
-    "type": "application",
+    "name": "masterton/phpspider",
+    "type": "library",
     "description": "A configurable and extensible PHP web spider",
-    "keywords": ["spider", "crawler", "scraper"],
+    "keywords": ["spider", "crawler"],
     "license": "MIT",
     "authors": [
         {
-            "name": "Matthijs van den Bos",
-            "email": "matthijs@vandenbos.org"
+            "name": "Master zheng",
+            "email": "zhengcloud@foxmail.com",
+            "role": "Developer"
         }
     ],
     "support": {
-        "issues": "https://github.com/matthijsvandenbos/php-spider/issues",
-        "source": "https://github.com/matthijsvandenbos/php-spider"
+        "issues": "https://github.com/Masterton/phpspider/issues",
+        "source": "https://github.com/Masterton/phpspider"
     },
     "require": {
-        "php": ">=5.5.0",
-        "guzzlehttp/guzzle": "^6.0.0",
-        "symfony/css-selector": "^3.0.0",
-        "symfony/dom-crawler": "^3.0.0",
-        "symfony/finder": "^3.0.0",
-        "symfony/event-dispatcher": "^3.0.0",
-        "vdb/uri": "^0.2"
+        "php": ">=5.6",
+        "phpunit/phpunit": "^5.7"
+    },
+    "suggest": {
+        "ext-pcntl、ext-redis": "For better performance. "
     },
     "autoload": {
-        "psr-0": {
-            "VDB\\Spider": "src/",
-            "VDB\\Spider\\Tests": "tests/"
+        "psr-4": {
+            "phpspider\\": "./"
+        }
+    },
+    "scripts": {
+        "start": "php -S 0.0.0.0:8080 -t public public/index.php",
+        "test": "phpunit"
+    },
+    "repositories": {
+        "packagist": {
+            "type": "composer",
+            "url": "https://packagist.phpcomposer.com"
         }
     }
 }
