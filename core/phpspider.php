@@ -19,6 +19,13 @@ require_once __DIR__ . '/constants.php';
 
 use Exception;
 
+// 启动的时候生成data目录
+Util::path_exists(PATH_DATA);
+Util::path_exists(PATH_DATA."/lock");
+Util::path_exists(PATH_DATA."/log");
+Util::path_exists(PATH_DATA."/cache");
+Util::path_exists(PATH_DATA."/status");
+
 class PHPSpider
 {
     /**
@@ -477,5 +484,13 @@ class PHPSpider
         self::$configs = $configs;
     }
 
-    // TODO
+    /**
+     * 爬虫开始运行
+     *
+     */
+    public function start()
+    {
+        // 爬虫开始时间
+        self::$
+    }
 }

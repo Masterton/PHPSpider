@@ -28,5 +28,26 @@ class Util
     public static function is_win()
     {
         return strtoupper(substr(PHP_OS, 0, 3)) === "WIN";
-    } 
+    }
+
+    /**
+     * 检查路径是否存在,不存在则递归生成路径
+     *
+     * @param mixed $path 路径
+     * @static
+     * @access public
+     * @return bool or string
+     */
+    public static function path_exists($path)
+    {
+        $pathinfo = pathinfo($path . '/tmp.txt');
+        if (!empty($pathinfo['dirname'])) {
+            if (file_exists($pathinfo['dirname']) === false) {
+                if (mkdir($pathinfo['dirname'], 0775, true) === false) {
+                    return false;
+                }
+            }
+        }
+        return $path;
+    }
 }

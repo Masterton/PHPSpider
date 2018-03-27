@@ -29,9 +29,9 @@ class Log
     /**
      * 日志类型
      *
-     * @var string
+     * @var mixed
      */
-    public static $log_type = "";
+    public static $log_type = flase;
 
     /**
      * 日志路径

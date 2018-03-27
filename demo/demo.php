@@ -47,5 +47,5 @@ $configs = array(
 
 $spider = new PHPSpider($configs);
 print_r("<pre>");
-print_r($spider::$configs);
+print_r($spider::$configs['name']);
 exit;
