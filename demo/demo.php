@@ -1,11 +1,10 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
-use phpspider\core\phpspider;
-use phpspider\core\requests;
-use phpspider\core\db;
+use PHPSpider\core\PHPSpider;
+// use PHPSpider\core\requests;
+// use PHPSpider\core\db;
 
 /* Do NOT delete this comment */
-/* 不要删除这段注释 */
 
 //$url = "https://istore.oppomobile.com/storeapp/home?size=10&start=0";
 //$data = requests::get($url);
@@ -45,7 +44,7 @@ $configs = array(
     'fields' => array(),
 );
 
-$spider = new phpspider($configs);
+$spider = new PHPSpider($configs);
 print_r("<pre>");
 print_r($spider::$configs);
 exit;

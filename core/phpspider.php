@@ -13,13 +13,13 @@
 // PHPSpider核心类文件
 //----------------------------------
 
-namespace phpspider\core;
+namespace PHPSpider\core;
 
 require_once __DIR__ . '/constants.php';
 
 use Exception;
 
-class phpspider
+class PHPSpider
 {
     /**
      * 版本号
@@ -413,16 +413,16 @@ class phpspider
         declare(ticks = 1);
 
         // 先打开以显示验证错误内容
-        log::$log_show = true;
-        log::$log_file = isset($configs['log_file']) ? $configs['log_file'] : PATH_DATA.'/phpspider.log';
-        log::$log_type = isset($config['log_type']) ? $configs['log_type'] : false;
+        Log::$log_show = true;
+        Log::$log_file = isset($configs['log_file']) ? $configs['log_file'] : PATH_DATA.'/phpspider.log';
+        Log::$log_type = isset($config['log_type']) ? $configs['log_type'] : false;
 
         // 彩蛋
         $included_files = get_included_files();
-        $content = file_get_content($included_files[0]);
+        $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this commit \*/#", $content) || !preg("#/\* 不要删除这段注释 \*/#", $content)) {
             $msg = "Unknown error...";
-            log::error($msg);
+            Log::error($msg);
             exit;
         }
 
