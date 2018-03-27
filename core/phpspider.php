@@ -420,7 +420,8 @@ class PHPSpider
         // 彩蛋
         $included_files = get_included_files();
         $content = file_get_contents($included_files[0]);
-        if (!preg_match("#/\* Do NOT delete this commit \*/#", $content) || !preg("#/\* 不要删除这段注释 \*/#", $content)) {
+        if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
+        {
             $msg = "Unknown error...";
             Log::error($msg);
             exit;
