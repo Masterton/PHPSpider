@@ -16,9 +16,11 @@ use PHPSpider\core\PHPSpider;
 $configs = array(
     'name' => 'test',
     'tasknum' => 1,
+    'save_running_state' => true,
     //'multiserver' => true,
     'log_show' => true,
     //'save_running_state' => false,
+    // 'multiserver' => true,
     'domains' => array(
         'www.test.com'
     ),
@@ -35,6 +37,14 @@ $configs = array(
         //'type' => 'db', 
         //'table' => 'meinv_content',
     //),
+    'queue_config' => array(
+        'host'      => '127.0.0.1',
+        'port'      => 6379,
+        'pass'      => '',
+        'db'        => 5,
+        'prefix'    => 'phpspider',
+        'timeout'   => 30,
+    ),
     'db_config' => array(
         'host'  => '127.0.0.1',
         'port'  => 3306,
@@ -46,6 +56,7 @@ $configs = array(
 );
 
 $spider = new PHPSpider($configs);
+$spider->start();
 print_r("<pre>");
 print_r($spider::$configs['name']);
 exit;

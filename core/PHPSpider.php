@@ -452,7 +452,7 @@ class PHPSpider
         self::$queue_config = isset($configs['queue_config'])    ? $configs['queue_config']    : array();
 
         // 是否设置了并发任务数,并且大于1,而且不是windows环境
-        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && util::is_win())
+        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win())
         {
             self::$tasknum = $configs['tasknum'];
         }
@@ -490,7 +490,208 @@ class PHPSpider
      */
     public function start()
     {
+        // 分析命令行命令
+        $this->parse_command();
+
         // 爬虫开始时间
-        self::$
+        self::$time_start = time();
+        // 当前任务ID
+        self::$taskid = 1;
+        // 当前任务进程ID
+        self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
+        self::$collect_succ = 0;
+        self::$collect_fail = 0;
+
+        // --------------------------------
+        // 运行前验证
+        // --------------------------------
+
+        // 检查PHP版本
+        if (version_compare(PHP_VERSION, '5.3.0', 'lt')) {
+            Log::error("PHP 5.3+ is required, currently installed version is: " . phpversion());
+            exit;
+        }
+
+        // 检查CURL扩展
+        if (!function_exists('curl_init')) {
+            Log::error("The curl extension was not found");
+            exit;
+        }
+
+        // 多任务需要 pcntl 扩展支持
+        if (self::$tasknum > 1 && !function_exists('pcntl_fork')) {
+            Log::error("Multitasking needs pcntl, the pcntl extension was not found");
+            exit;
+        }
+
+        // 守护进程需要 pcntl 扩展支持
+        if (self::$daemonize && !function_exists('pcntl_fork')) {
+            Log::error("Daemonize needs pcntl, the pcntl extension was not found");
+            exit;
+        }
+
+        // 集群、保存运行状态、多任务都需要 Redis 支持
+        if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) {
+            self::$use_redis = true;
+
+            Queue::set_connect('default', self::$queue_config);
+            if (!Queue::init()) {
+                if (self::$multiserver) {
+                    Log::error("Multiserver needs Redis support, " . Queue::$error);
+                    exit;
+                }
+
+                if (self::$tasknum > 1) {
+                    Log::error("Multitasking needs Redis supports, " . Queue::$error);
+                    exit;
+                }
+
+                if (self::$save_running_state) {
+                    Log::error("Spider kept running state needs Reids support, " . Queue::$error);
+                    exit;
+                }
+            }
+        }
+
+        // 检查导出
+        $this->check_export();
+
+        // 检查缓存
+        $this->check_cache();
+
+        // 检查 scan_urls
+        if (empty(self::$configs['scan_urls'])) {
+            Log::error("No scan url to start");
+            exit;
+        }
+
+        foreach (self::$configs['scan_urls'] as $url) {
+            // 只检查配置中的入口URL,通过 add_scan_url 添加的不检查了.
+            if (!$this->is_scan_page($url)) {
+                Log::error("Domain of scan_urls (\"{$url}\") does not match the domain of the domain name");
+                exit;
+            }
+        }
+
+        // windows 下没法显示面板,强制显示日志
+        if (Util::is_win()) {
+            self::$configs['name'] = iconv("UTF-8", "GB2312//IGNORE", self::$configs['name']);
+            Log::$log_show = true;
+        } elseif (self::$daemonize) {
+            // 守护进程下也显示日志
+            Log::$log_show = true;
+        } else {
+            Log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+        }
+
+        if (Log::$log_show) {
+            global $argv;
+            $start_file = $argv[0];
+
+            $header = "";
+            if (!Util::is_win()) {
+                $header .= "\033[33m";
+            }
+            $header .= "\n[ " . self::$configs['name'] . " Spider ] is started...\n\n";
+            $header .= "  * PHPSpider Version: " . self::VERSION . "\n";
+            $header .= "  * Documentation: https:doc.phpspider.org\n";
+            $header .= "  * Task Number: " . self::$tasknum . "\n\n";
+            $header .= "Input \"php $start_file stop\" to quit. Start success.\n";
+            if (!Util::is_win()) {
+                $header .= "\033[0m";
+            }
+            Log::note($header);
+
+            // 如果是守护进程,恢复日志状态
+            /*if (self::$daemonize) {
+                Log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+            }*/
+
+            // 多任务和分布式都要清掉,当然分布式只清自己的
+            $this->init_redis();
+
+            // -----------------------------
+            // 生成多任务
+            // -----------------------------
+
+            // 添加入口URL到队列
+            foreach (self::$configs['scan_urls'] as $url) {
+                // false 表示不允许重复
+                $this->add_scan_url($url, null, false);
+            }
+
+            // 放在这个位置,可以添加入口页面
+            if ($this->on_start) {
+                call_user_func($this->on_start, $this);
+            }
+
+            if (!self::$daemonize) {
+                if (!Log::$log_show) {
+                    // 第一次先清屏
+                    $this->clear_echo();
+
+                    // 先显示一次面板,然后下面再每次采集成功显示一次
+                    $this->display_ui();
+                }
+            } else {
+                $this->daemonize();
+            }
+
+            // 安装信号
+            $this->install_signal();
+
+            // 开始采集
+            $this->do_collect_page();
+
+            // 从服务器列表中删除当前服务器信息
+            $this->del_server_list(self::$serverid);
+        }
+    }
+
+    /**
+     * Parse command 分析命令行命令
+     * php yourfile.php start | stop | status | kill
+     *
+     * @return void
+     */
+    public function parse_command()
+    {
+        // 检查运行命令的参数
+        global $argv;
+        $start_file = $argv[0];
+
+        // 命令
+        $command = isset($argv[1]) ? trim($argv[1]) : 'start';
+
+        // 子命令,目前只支持 -d
+        $command2 = isset($argv[2]) ? $argv[2] : '';
+
+        // 根据命令做相应处理
+        switch ($command) {
+            case 'start':
+                if ($command2 === '-d') {
+                    self::$daemonize = true;
+                }
+                break;
+            case 'stop':
+                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}'", $info);
+                if (count($info) <= 1) {
+                    echo "PHPSpider[$start_file] not run\n";
+                } else {
+                    // echo "PHPSpider[$start_file] is stoping ...\n";
+                    echo "PHPSpider[$start_file] stop success";
+                    exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGINT", $info);
+                }
+                exit;
+                break;
+            case 'kill':
+                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGKILL");
+                break;
+            case 'status':
+                exit(0);
+
+            default :
+                exit("Usage: php youfile.php {start|stop|status|kill}\n");
+        }
     }
 }
