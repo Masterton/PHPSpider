@@ -591,9 +591,7 @@ class PHPSpider
             $start_file = $argv[0];
 
             $header = "";
-            if (!Util::is_win()) {
-                $header .= "\033[33m";
-            }
+            if (!Util::is_win()) $header .= "\033[33m";
             $header .= "\n[ " . self::$configs['name'] . " Spider ] is started...\n\n";
             $header .= "  * PHPSpider Version: " . self::VERSION . "\n";
             $header .= "  * Documentation: https:doc.phpspider.org\n";
@@ -779,5 +777,22 @@ class PHPSpider
                 }
             }
         }
+    }
+
+    /**
+     * 是否入口页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 18:03:13
+     */
+    public static function is_scan_page($url)
+    {
+        $parse_url = parse_url($url);
+        if (empty($parse_url['host']) || !in_array($parse_url['host'], self::$configs['domains'])) {
+            return false;
+        }
+        return true;
     }
 }
