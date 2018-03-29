@@ -487,6 +487,8 @@ class PHPSpider
     /**
      * 爬虫开始运行
      *
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-28 10:08:22
      */
     public function start()
     {
@@ -553,10 +555,10 @@ class PHPSpider
             }
         }
 
-        // 检查导出
-        $this->check_export();
+        // 检查导出 TODO 预留功能 2018-3-29 15:41:12
+        // $this->check_export();
 
-        // 检查缓存
+        // 检查缓存 TODO 预留功能
         $this->check_cache();
 
         // 检查 scan_urls
@@ -653,6 +655,8 @@ class PHPSpider
      * php yourfile.php start | stop | status | kill
      *
      * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 09:20:34
      */
     public function parse_command()
     {
@@ -692,6 +696,88 @@ class PHPSpider
 
             default :
                 exit("Usage: php youfile.php {start|stop|status|kill}\n");
+        }
+    }
+
+    /**
+     * 导出验证
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 15:06:03 // TODO 预留功能
+     */
+    public function check_export()
+    {
+        // 如果设置了导出选项
+        if (!empty(self::$config['export'])) {
+            if (self::$export_type == 'csv') {
+                if (empty(self::$export_file)) {
+                    Log::error("Export data into CSV files need to Set the file path.");
+                    exit;
+                }
+            } elseif (self::$export_type == 'sql') {
+                if (empty(self::$export_file)) {
+                    Log::error("Export data into SQL files need to Set the file path.");
+                    exit;
+                }
+            } elseif (self::$export_type == 'db') {
+                if (!function_exists('mysqli_connect')) {
+                    Log::error("Export data to a database need Mysql support, unable to load mysqli extension.");
+                    exit;
+                }
+
+                if (empty(self::$db_config)) {
+                    Log::error("Export data to a database need Mysql support, you have not set a config array for connect.");
+                    exit;
+                }
+
+                $config = self::$db_config;
+                @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
+                if (mysqli_connect_errno()) {
+                    Log::error("Export data to a database need Mysql support, " . mysqli_connect_errno());
+                    exit;
+                }
+
+                db::set_connect('default', $config);
+                db::init_mysql();
+
+                if (!db::table_exists(self::$export_table)) {
+                    Log::error("Table " . self::$export_table . " does not exist");
+                    exit;
+                }
+            }
+        }
+    }
+
+    /**
+     * 检查缓存
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 15:20:12 // TODO
+     */
+    public function check_cache()
+    {
+        if (!self::$use_redis || !self::$save_running_state) {
+            return false;
+        }
+
+        $keys = Queue::keys("*");
+        if (count($keys) != 0) {
+            // After this operation, 4,318 kB of additional disk space will be used.
+            // Do you want to continue? [Y/n]
+            // $msg = "发现Reids中有采集数据,是否继续执行,不继续则清空Redis数据重新采集\n";
+            $msg = "Found that the data of Redis, no continue will empty Redis data start again\n";
+            $msg .= "Do you want to continue? [Y/n]";
+            fwrite(STDOUT, $msg);
+            $arg = strtolower(trim(fgets(STDIN)));
+            $arg = empty($arg) || !in_array($arg, array('y', 'n')) ? 'y' : $arg;
+            if ($arg == 'n') {
+                foreach ($keys as $key) {
+                    $key = str_replace(self::$queue_config['prefix'] . ":", "", $key);
+                    Queue::del($key);
+                }
+            }
         }
     }
 }

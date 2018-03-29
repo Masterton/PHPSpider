@@ -140,4 +140,292 @@ class Queue
         }
         return self::$configs['default'];
     }
+
+    /**
+     * set 设置对应键的值
+     *
+     * @param mixed $key   键
+     * @param mixed $value 值
+     * @param int $expire  过期时间,单位: 秒
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 15:44:18
+     */
+    public static function set($key, $value, $expire = 0)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if ($expire > 0) {
+                    return self::$links[self::$link_name]->setex($key, $expire, $value);
+                } else {
+                    return self::$links[self::$link_name]->set($key, $value);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaugth exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::set($key, $value, $expire);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * setnx
+     * @param mixed $key   键
+     * @param mixed $value 值
+     * @param int $expire  过期时间,单位: 秒
+     * @return void
+     * @author Master <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:10:01
+     */
+    public static function setnx($key, $value, $expire)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if ($expire > 0) {
+                    return self::$links[self::$link_name]->set($key, $value, array('nx', 'ex' => $expire));
+                    // self::$links[self::$link_name]->multi();
+                    // self::$links[self::$link_name]->setNX($key, $value);
+                    // self::$links[self::$link_name]->expire($key, $value);
+                    // self::$links[self::$link_name]->exec();
+                    // return false;
+                } else {
+                    return self::$links[self::$link_name]->setnx($key, $value);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::setnx($key, $value, $expire);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * get 拿取数据
+     *
+     * @param mixed $key 键
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:21:07
+     */
+    public static function get($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->get($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::get($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * del 删除数据
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:26:41
+     */
+    public static function del($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->del($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::del($key);
+            }
+        }
+    }
+
+    /**
+     * flushdb 删除当前选择数据库中的所有key
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:50:28
+     */
+    public static function flushdb()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->flushdb();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::flushdb();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * flushall 删除所有数据苦衷的所有key
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:56:08
+     */
+    public static function flushall()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->flushall();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::flushall();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * 锁
+     * 默认锁1秒
+     *
+     * @param mixed $name 锁的标识名
+     * @param mixed $value 锁的值,貌似没啥意义
+     * @param int $expire 当前锁的最大生存时间(秒),必须大于0,超过生存时间系统会自动强制释放
+     * @param int $interval 获取锁失败后挂起再试的时间间隔(微秒)
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:36:37
+     */
+    public static function lock($name, $value = 1, $expire = 5, $interval = 100000)
+    {
+        if ($name == null) return false;
+
+        self::init();
+        try {
+            if (self::$links[$link_name]) {
+                $key = "Lock:{$name}";
+                while (true) {
+                    $result = self::$links[self::$link_name]->set($key, $value, array('nx', 'ex' => $expire));
+                    if ($result != false) {
+                        return true;
+                    }
+
+                    usleep($interval);
+                }
+                return false;
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lock($name, $value, $expire, $interval);
+            }
+        }
+    }
+
+    /**
+     * 解锁
+     *
+     * @param mixed $name 锁的标识
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 16:48:06
+     */
+    public static function unlock($name)
+    {
+        $key = "Lock:{$name}";
+        return self::del($key);
+    }
+
+    /**
+     * 删除连接的redis实例
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 17:04:29
+     */
+    public static function clear_link()
+    {
+        if (self::$links) {
+            foreach (self::$links as $key => $value) {
+                $value->close();
+                unset(self::$links[$key]);
+            }
+        }
+    }
+
+    /**
+     * keys
+     * 查找符合给定模式的key
+     * KEYS *命中数据库中所有key
+     * KEYS h?llo命中hello hallo and hxllo等
+     * KEYS h*llo命中hllo和heeeello等
+     * KEYS h[ae]llo命中hello和hallo,但不命中hillo
+     * 特殊符号用"\"隔开
+     * 因为这个类加了OPT_PREFIX前缀,所以并不能真的列出redis所有的key,需要的话,要把前缀去掉
+     *
+     * @param mixed $key 键
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 17:20:00
+     */
+    public static function keys($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->keys($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::keys($key);
+            }
+        }
+        return NULL;
+    }
 }
