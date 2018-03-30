@@ -428,4 +428,33 @@ class Queue
         }
         return NULL;
     }
+
+    /**
+     * lpush 将数据从左边压入
+     *
+     * @param mixed $key
+     * @param mixed $value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 11:02:44
+     */
+    public static function lpush($key, $value)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lpush($key, $value);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lpush($key, $value);
+            }
+        }
+        return NULL;
+    }
 }

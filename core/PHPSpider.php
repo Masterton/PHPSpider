@@ -795,4 +795,245 @@ class PHPSpider
         }
         return true;
     }
+
+    /**
+     * 清掉多任务和分布式
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 09:23:48
+     */
+    public function init_redis()
+    {
+        if (!self::$use_redis) {
+            return false;
+        }
+
+        // 添加当前服务器到服务器列表
+        $this->add_server_list(self::$serverid, self::$tasknum);
+
+        // 删除当前服务器的任务状态
+        // 对于被强制退出的进程有用
+        for ($i = 1; $i <= self::$tasknum; $i++) {
+            $this->del_task_status(self::$serverid, $i);
+        }
+    }
+
+    /**
+     * 添加当前服务器信息到服务器列表
+     *
+     * @param int $serverid 当前服务器id
+     * @param int $tasknum
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 09:25:22
+     */
+    public function add_server_list($serverid, $tasknum)
+    {
+        if (!self::$use_redis) {
+            return false;
+        }
+
+        // 更新服务器列表
+        $server_list_json = Queue::get("server_list");
+        $server_list = array();
+        if (!$server_list_json) {
+            $server_list[$serverid] = array(
+                'serverid' => $serverid,
+                'tasknum' => $tasknum,
+                'time' => time(),
+            );
+        } else {
+            $server_list = json_decode($server_list_json, true);
+            $server_list[$serverid] = array(
+                'serverid' => $serverid,
+                'tasknum' => $tasknum,
+                'time' => time(),
+            );
+            ksort($server_list);
+        }
+        Queue::set("server_list", json_encode($server_list));
+    }
+
+    /**
+     * 删除任务状态
+     *
+     * @param int $serverid
+     * @param int $taskid
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:31:53
+     */
+    public function del_task_status($serverid, $taskid)
+    {
+        if (!self::$use_redis) {
+            return false;
+        }
+        $key = "server-{$serverid}-task_status-{$taskid}";
+        Queue::del($key);
+    }
+
+    /**
+     * 添加URL到队列
+     *
+     * @param string $url
+     * @param array $options
+     * @param bool $allower_repeat
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:36:45
+     */
+    public function add_scan_url($url, $options = array(), $allowed_repeat = true)
+    {
+        // 投递状态
+        $status = false;
+
+        $link = $options;
+        $link['url'] = $url;
+        $link['url_type'] = 'scan_page';
+        $link = $this->link_uncompress($link);
+
+        if ($this->is_list_page($url)) {
+            $link['url_type'] = 'list_page';
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        } elseif ($this->is_content_page($url)) {
+            $link['url_type'] = 'content_page';
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        } else {
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        }
+
+        if ($status) {
+            if ($link['url_type'] == 'scan_page') {
+                Log::debug("Find scan page: {$url}");
+            } elseif ($link['url_type'] == 'list_page') {
+                Log::debug("Find list page: {$url}");
+            } elseif ($link['url_type'] == 'content_page') {
+                Log::debug("Find content page: {$url}");
+            }
+        }
+
+        return $status;
+    }
+
+    /**
+     * 连接对象解压缩
+     *
+     * @param string $link
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:46:36
+     */
+    public function link_uncompress($link)
+    {
+        $link = array(
+            'url' => isset($link['url']) ? $link['url'] : '',
+            'url_type' => isset($link['url_type']) ? $link['url_type'] : '',
+            'method' => isset($link['method']) ? $link['method'] : '',
+            'headers' => isset($link['headers']) ? $link['headers'] : array(),
+            'params' => isset($link['params']) ? $link['params'] : array(),
+            'content_data' => isset($link['content_data']) ? $link['content_data'] : '',
+            'proxy' => isset($link['proxy']) ? $link['proxy'] : self::$configs['proxy'],
+            'try_num' => isset($link['try_num']) ? $link['try_num'] : 0,
+            'max_try' => isset($link['max_try']) ? $link['max_try'] : self::$configs['max_try'],
+            'depth' => isset($link['depth']) ? $link['depth'] : 0,
+        );
+
+        return $link;
+    }
+
+    /**
+     * 是否列表页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:53:41
+     */
+    public function is_list_page($url)
+    {
+        $result = false;
+        if (!empty(self::$configs['list_url_regexes'])) {
+            foreach (self::$configs['list_url_regexes'] as $regex) {
+                if (preg_match("#{$regex}#i", $url)) {
+                    $result = true;
+                    break;
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * 是否内容页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:57:35
+     */
+    public function is_content_page($url)
+    {
+        $result = false;
+        if (!empty(self::$configs['content_url_regexes'])) {
+            foreach (self::$configs['content_url_regexes'] as $regex) {
+                if (preg_match("#{$regex}#i", $url)) {
+                    $result = true;
+                    break;
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * 从队列左边插入
+     *
+     * @param array $link
+     * @param bool $allowed_repeat
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 11:09:24
+     */
+    public function queue_lpush($link = array(), $allowed_repeat = false)
+    {
+        if (empty($link) || empty($link['url'])) {
+            return false;
+        }
+
+        $url = $link['url'];
+        $link = $this->link_compress($link);
+
+        $status = false;
+        if (self::$use_redis) {
+            $key = "collect_urls-" . md5($url);
+            $lock = "lock-" . $key;
+            // 加锁: 一个进程一个进程轮流处理
+            if (Queue::lock($lock)) {
+                $exists = Queue::exists($key);
+                // 不存在或者当然URL可重复入
+                if (!$exists || $allowed_repeat) {
+                    // 待爬取网页记录数加一
+                    Queue::incr("collect_url_num");
+                    // 先标记为待爬取网页
+                    Queue::set($key, time());
+                    // 入队列
+                    $link = json_encode($link);
+                    Queue::lpush("collect_queue", $link);
+                    $status = true;
+                }
+                // 解锁
+                Queue::unlock($lock);
+            }
+        } else {
+            $key = md5($url);
+            if (!array_key_exists($key, self::$collect_urls)) {
+                self::$collect_urls_num++;
+                self::$collect_urls[$key] = time();
+                array_push(self::$collect_queue, $link);
+                $status = true;
+            }
+        }
+        return $status;
+    }
 }
