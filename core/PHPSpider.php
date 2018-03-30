@@ -641,10 +641,10 @@ class PHPSpider
             $this->install_signal();
 
             // 开始采集
-            $this->do_collect_page();
+            // $this->do_collect_page();
 
             // 从服务器列表中删除当前服务器信息
-            $this->del_server_list(self::$serverid);
+            // $this->del_server_list(self::$serverid);
         }
     }
 
@@ -694,6 +694,88 @@ class PHPSpider
 
             default :
                 exit("Usage: php youfile.php {start|stop|status|kill}\n");
+        }
+    }
+
+    /**
+     * Signal hander
+     *
+     * @param int $signal
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 17:25:14
+     */
+    public function signal_handler($signal)
+    {
+        switch ($signal) {
+            // Stop
+            case SIGINT:
+                Log::warn("Program stopping...");
+                self::$terminate = true;
+                break;
+            case SIGUSR2:
+                echo "show status\n";
+                break;
+
+            default:
+                # code...
+                break;
+        }
+    }
+
+    /**
+     * Install signal handler.
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 17:29:09
+     */
+    public function install_signal()
+    {
+        if (function_exists('pcntl_signal')) {
+            // stop
+            // static 调用
+            // pcntl_signal(SIGINT, array(__CLASS__, 'signal_handler'), false);
+            pcntl_signal(SIGINT, array(&$this, 'signal_handler'), false);
+            // status
+            pcntl_signal(SIGUSR2, array(&$this, 'signal_handler'), false);
+            // ignore
+            pcntl_signal(SIGPIPE, SIG_IGN, false);
+        }
+    }
+
+    /**
+     * Run as deamon mode.
+     *
+     * @throws Exception
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 17:33:54
+     */
+    protected static function daemonize()
+    {
+        if (!self::$daemonize) {
+            return;
+        }
+
+        // fork前一定要关闭redis
+        Queue::clear_link();
+
+        umask(0);
+        $pid = pcntl_fork();
+        if (-1 === $pid) {
+            throw new Exception("fork fail");
+        } elseif ($pid > 0) {
+            exit(0);
+        }
+        if (-1 === posix_setsid()) {
+            throw new Exception("setsid fail");
+        }
+        // Fork again avoid SVR4 system regain the control of terminal.
+        $pid = pcntl_fork();
+        if (-1 === $pid) {
+            throw new Exception("fork fail");
+        } elseif (0 !== $pid) {
+            exit(0);
         }
     }
 
@@ -917,6 +999,56 @@ class PHPSpider
     }
 
     /**
+     * 连接对象压缩
+     *
+     * @param mixed $link
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 16:36:48
+     */
+    public function link_compress($link)
+    {
+        if (empty($link['url_type'])) {
+            unset($link['url_type']);
+        }
+
+        if (empty($link['method']) || strtolower($link['method']) == "get") {
+            unset($link['method']);
+        }
+
+        if (empty($link['headers'])) {
+            unset($link['headers']);
+        }
+
+        if (empty($link['params'])) {
+            unset($link['params']);
+        }
+
+        if (empty($link['context_data'])) {
+            unset($link['context_data']);
+        }
+
+        if (empty($link['proxy'])) {
+            unset($link['proxy']);
+        }
+
+        if (empty($link['try_num'])) {
+            unset($link['try_num']);
+        }
+
+        if (empty($link['max_try'])) {
+            unset($link['max_try']);
+        }
+
+        if (empty($link['depth'])) {
+            unset($link['depth']);
+        }
+        // $json = json_encode($link);
+        // $json = gzdeflate($json);
+        return $link;
+    }
+
+    /**
      * 连接对象解压缩
      *
      * @param string $link
@@ -1035,5 +1167,153 @@ class PHPSpider
             }
         }
         return $status;
+    }
+
+    /**
+     * 从队列右边插入
+     *
+     * @param array $link
+     * @param bool $allowed_repeat
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:37:13
+     */
+    public function queue_rpush($link = array(), $allowed_repeat = false)
+    {
+        if (empty($link) || empty($link['url'])) {
+            return false;
+        }
+
+        $url = $link['url'];
+        $status = false;
+        if (self::$use_redis) {
+            $key = "collect_urls-" . md5($url);
+            $lock = "lock-" . $key;
+            // 加锁: 一个进程一个进程轮流处理
+            if (Queue::lock($lock)) {
+                $exists = Queue::exists($key);
+                // 不存在或则当然URL可重复入
+                if (!$exists || $allowed_repeat) {
+                    // 待爬取网页记录数加一
+                    Queue::incr("collect_urls_num");
+                    // 先标记为待爬取网页
+                    Queue::set($key, time());
+                    // 入队列
+                    $link = json_encode($link);
+                    Queue::rpush("collect_queue", $link);
+                    $status = true;
+                }
+                // 解锁
+                Queue::unlock($lock);
+            }
+        } else {
+            $key = md5($url);
+            if (!array_key_exists($key, self::$collect_urls)) {
+                self::$collect_urls_num++;
+                self::$collect_urls[$key] = time();
+                array_unshift(self::$collect_queue, $link);
+                $status = true;
+            }
+        }
+        return $status;
+    }
+
+    /**
+     * 从队列左边取出
+     * 后进先出
+     * 可以避免采集内容页有分页的时候采集失败数据拼凑不全
+     * 还可以按顺序采集列表页
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:48:09
+     */
+    public function queue_lpop()
+    {
+        if (self::$use_redis) {
+            $link = Queue::lpop("collect_queue");
+            $link = json_decode($link, true);
+        } else {
+            $link = array_pop(self::$collect_queue);
+        }
+        return $link;
+    }
+
+    /**
+     * 从队列右边取出
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:50:46
+     */
+    public function queue_rpop()
+    {
+        if (self::$use_redis) {
+            $link = Queue::rpop("collect_queue");
+            $link = json_decode($link, true);
+        } else {
+            $link = array_shift(self::$collect_queue);
+        }
+        return $link;
+    }
+
+    /**
+     * 队列长度
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:53:26
+     */
+    public function queue_lsize()
+    {
+        if (self::$use_redis) {
+            $lsize = Queue::lsize("collect_queue");
+        } else {
+            $lsize = count(self::$collect_queue);
+        }
+        return $lsize;
+    }
+
+    /**
+     * 采集深度加一
+     *
+     * @param int $depth 采集深度
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:57:59
+     */
+    public function incr_depth_num($depth)
+    {
+        if (self::$use_redis) {
+            $lock = "lock-depth_num";
+            // 锁2秒
+            if (Queue::lock($lock, time(), 2)) {
+                if (Queue::get("depth_num") < $depth) {
+                    Queue::set("depth_num", $depth);
+                }
+                Queue::unlock($lock);
+            }
+        } else {
+            if (self::$depth_num < $depth) {
+                self::$depth_num = $depth;
+            }
+        }
+    }
+
+    /**
+     * 获取采集深度
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:03:18
+     */
+    public function get_depth_num()
+    {
+        if (self::$use_redis) {
+            $depth_num = Queue::get("depth_num");
+            return $depth_num ? $depth_num : 0;
+        } else {
+            return self::$depth_num;
+        }
     }
 }

@@ -163,7 +163,7 @@ class Queue
                 }
             }
         } catch (Exception $e) {
-            $msg = "PHP Fatal error: Uncaugth exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
             Log::warn($msg);
             if ($e->getCode() == 0) {
                 self::$links[self::$link_name]->close();
@@ -269,6 +269,76 @@ class Queue
     }
 
     /**
+     * type 返回值的类型
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 16:59:06
+     */
+    public static function type($key)
+    {
+        self::init();
+
+        $types = array(
+            '0' => 'set',
+            '1' => 'string',
+            '2' => 'list',
+        );
+
+        try {
+            if (self::$links[self::$link_name]) {
+                $type = self::$links[self::$link_name]->type($key);
+                if (isset($types[$type])) {
+                    return $types[$type];
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::type($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * incr 名称为key的string增加integer,integer为0则增1
+     *
+     * @param mixed $key
+     * @param int $integer
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 17:05:56
+     */
+    public static function incr($key, $integer = 0)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if (empty($integer)) {
+                    return self::$links[self::$link_name]->incr($key);
+                } else {
+                    return self::$links[self::$link_name]->incrby($key, $integer);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::incr($key, $integer);
+            }
+        }
+    }
+
+    /**
      * flushdb 删除当前选择数据库中的所有key
      *
      * @return void
@@ -340,7 +410,7 @@ class Queue
 
         self::init();
         try {
-            if (self::$links[$link_name]) {
+            if (self::$links[self::$link_name]) {
                 $key = "Lock:{$name}";
                 while (true) {
                     $result = self::$links[self::$link_name]->set($key, $value, array('nx', 'ex' => $expire));
@@ -456,5 +526,147 @@ class Queue
             }
         }
         return NULL;
+    }
+
+    /**
+     * rpush 将数据从右边压入
+     *
+     * @param mixed $key
+     * @param mixed $value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:08:23
+     */
+    public static function rpush($key, $value)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->rpush($key, $value);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::rpush($key, $value);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lpop 从左边弹出数据,并删除数据
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:14:05
+     */
+    public static function lpop($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lpop($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lpop($key);
+            }
+        }
+        return NUll;
+    }
+
+    /**
+     * rpop 从右边弹出数据,并删除数据
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:19:42
+     */
+
+    public static function rpop($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->rpop($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0)  {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::rpop($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lsize 队列长度,同llen
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:25:31
+     */
+    public static function lsize($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lSize();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lsize($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * exists key值是否存在
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 16:57:21
+     */
+    public static function exists($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->exists($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '". $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::exists($key);
+            }
+        }
+        return false;
     }
 }
