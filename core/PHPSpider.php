@@ -1316,4 +1316,292 @@ class PHPSpider
             return self::$depth_num;
         }
     }
+
+    /**
+     * 开始采集
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-1 20:26:59
+     */
+    public function do_collect_page()
+    {
+        while ($queue_lsize = $this->queue_lsize()) {
+            // 如果是主任务
+            if (self::$taskmaster) {
+                // 多任务下主任务为准备就绪
+                if (self::$tasknum > 1 && !self::$fork_task_complete) {
+                    // 主进程采集到两倍于任务数是,生成子任务一起采集
+                    if ($queue_lsize > self::$tasknum*2) {
+                        self::$fork_task_complete = true;
+
+                        // fork 子进程前一定要先干掉redis连接fd,不然会存在进程互抢redis fd 问题
+                        Queue::clear_link();
+                        // task进程从2开始,1被master进程所使用
+                        for ($i = 2; $i <= self::$tasknum; $i++) {
+                            $this->fork_one_task($i);
+                        }
+                    }
+                }
+
+                // 抓取页面
+                $this->collect_page();
+                // 保存任务状态
+                $this->set_task_status();
+
+                // 每采集成功一次页面,就刷新一次面板
+                if (!Log::$log_show && !self::$daemonize) {
+                    $this->display_ui();
+                }
+            } else { // 如果是子任务
+                // 如果队列中的网页比任务数2倍多,子任务可以采集,否则等待...
+                if (!$queue_lsize > self::$tasknum*2) {
+                    // 抓取页面
+                    $this->collecet_page();
+                    // 保存任务状态
+                    $this->set_task_status();
+                } else {
+                    Log::warn("Task(" . self::$taskid . ") waiting...");
+                    sleep(1);
+                }
+            }
+
+            // 检查进程是否收到关闭信号
+            $this->check_terminate();
+        }
+    }
+
+    /**
+     * 爬取网页
+     *
+     * @param mixed $collect_url 要抓取的链接
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-1 20:41:11
+     */
+    public function collect_page()
+    {
+        $get_collect_url_num = $this->get_collect_url_num();
+        Log::info("Find pages: {$get_collect_url_num}");
+
+        $queue_lsize = $this->queue_lsize();
+        Log::info("Waiting for collect pages: {$queue_lsize}");
+
+        $get_collected_url_num = $this->get_collected_url_num();
+        Log::info("Collected pages: {$get_collected_url_num}");
+
+        // 多任务的时候输出爬虫序号
+        if (self::$task_num > 1) {
+            Log::info("Current task id: " . self::$taskid);
+        }
+
+        // 先进先出
+        $link = $this->queue_rpop();
+        $link = $this->link_uncompress($link);
+        $url = $links['url'];
+
+        // 标记为已爬取网页
+        $this->incr_collected_url_num();
+
+        // 爬取网页开始时间
+        $page_time_start = microtime(true);
+
+        Requests::$input_encoding = null;
+        $html = $this->request_url($url, $link);
+
+        if (!$html) {
+            return false;
+        }
+        // 当前正在爬取的网页页面的对象
+        $page = array(
+            'url' => $url,
+            'raw' => $html,
+            'request' => array(
+                'url' => $url,
+                'method' => $link['method'],
+                'headers' => $link['headers'],
+                'params' => $link['params'],
+                'context_data' => $link['context_data'],
+                'try_num' => $link['try_num'],
+                'max_try' => $link['max_try'],
+                'depth' => $link['depth'],
+                'taskid' => self::$taskid,
+            ),
+        );
+        // printf("memory usage: %.2f M\n", memory_get_usage() / 1024 / 1024);
+        unset($html);
+        // --------------------------------------
+        // 处理回调函数
+        // --------------------------------------
+
+        // 判断当前网页是否被反爬虫了,需要开发者实现
+        if ($this->is_anti_spider) {
+            $is_anti_spider = call_user_func($this->is_anti_spider, $page['raw'], $this);
+            // 如果在回调函数里面判断被反爬虫并且返回true
+            if ($is_anti_spider) {
+                return false;
+            }
+        }
+
+        // 在一个网页下载完成之后调用,主要用来对下载的网页进行处理
+        // 比如下载了某个网页,希望向网页的body中添加html标签
+        if ($this->on_download_page) {
+            $return = call_user_func($this->on_download_page, $page, $this);
+            // 针对那些老是忘记return的人
+            if (isset($return)) $page = $return;
+        }
+
+        // 是否从当前页面分析提取URL
+        // 回调函数如果返回false标识不需要再从此网页中发现待爬url
+        $is_find_url = false;
+        if ($link['url_type'] == 'scan_page') {
+            if ($this->on_scan_page) {
+                $return = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
+            }
+        } elseif ($link['url_type'] == 'list_page') {
+            if ($this->on_list_page) {
+                $return = call_user_func($this->on_list_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
+            }
+        } elseif ($link['url_type'] == 'content_page') {
+            if ($this->on_content_page) {
+                $return = call_user_func($this->on_content_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
+            }
+        }
+
+        // on_scan_page、on_list_page、on_content_page
+        // 返回false标识不需要再从此网页中发现待爬url
+        if ($is_find_url) {
+            // 如果深度没有超过最大深度,获取下一级url
+            if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) {
+                // 分析提取HTML页面中的URL
+                $this->get_url($page['raw'], $url, $link['depth'] + 1);
+            }
+        }
+
+        // 如果是内容页,分析提取HTML页面中的字段
+        // 列表页页可以提取数据的,source_type: urlcontext,未实现
+        if ($link['url_type'] == 'content_page') {
+            $this->get_html_fields($page['raw'], $url, $page);
+        }
+
+        // 如果当前深度大于缓存的,更新缓存
+        $this->incr_depth_num($link['depth']);
+
+        // 处理页面耗时时间
+        $time_run = round(microtime() - $page_time_start, 3);
+        Log::debug("Success process page {$url} in {$time_run} s");
+
+        $spider_time_run = Util::time2second(intval(microtime(true) - self::$time_start));
+        Log::info("Spider running in {$spider_time_run}");
+
+        // 爬虫爬取每个网页的时间间隔,单位: 毫秒
+        if (!isset(self::$configs['interval'])) {
+            // 默认睡眠100毫秒,太快了会被认为是ddos
+            self::$configs['interval'] = 100;
+        }
+        usleep(self::$configs['interval'] * 1000);
+    }
+
+    /**
+     * 替换shell输出内容
+     *
+     * @param mixed $message
+     * @param mixed $force_clear_lines
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-1 21:19:28
+     */
+    public function replace_echo($message, $force_clear_lines = NULL)
+    {
+        static $last_lines = 0;
+
+        if (!is_null($force_clear_lines)) {
+            $last_lines = $force_clear_lines;
+        }
+
+        // 获取终端宽度
+        $toss = $status = null;
+        $term_width = exce('tput cols', $toss, $status);
+        if ($status || empty($term_width)) {
+            $term_width = 64; // Arbitrary fall-back term width
+        }
+
+        $line_count = 0;
+        foreach (explode("\n", $message) as $line) {
+            $line_count += count(str_split($line, $term_width));
+        }
+
+        // Erasure MAGIC: Clear as many lines as the last output had
+        for ($i = 0; $i < $last_lines; $i++) {
+            // Return to the beginning of the line
+            echo "\r";
+            // Erase to the end of the line
+            echo "\033[K";
+            // Move cursor Up a line
+            echo "\033[1A";
+            // Return to the beginning of line
+            echo "\r";
+            // Erase to the end of the line
+            echo "\033[K";
+            // Return to the beginning of the line
+            echo "\r";
+            // Can be consolodated into
+            // echo "\r\033[K\033[1A\r\033[K\r";
+        }
+
+        $last_lines = $line_count;
+
+        echo $message . "\n";
+    }
+
+    /**
+     * 展示启动界面,Window 不会到这里来
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-1 21:33:07
+     */
+    public function display_ui()
+    {
+        $loadavg = sys_getloadavg();
+        foreach ($loadavg as $k => $v) {
+            $loadavg[$k] = round($v, 2);
+        }
+        $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        // $display_str = "-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        $run_time_str = Util::time2second(time() - self::$time_start, false);
+        $display_str .= "PHPSpider version:" . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
+        $display_str .= "start time: " . date("Y-m-d H:i:s", self::$time_start) . " run " . $run_time_str . "\n";
+
+        $display_str .= "spider name: " . self::$configs['name'] . "\n";
+        if (self::$multiserver) {
+            $display_str .= "server id: " . self::$serverid . "\n";
+        }
+        $display_str .= "task number: " . self::$tasknum . "\n";
+        $display_str .= "load average: " . implode(", ", $loadavg) . "\n";
+        $display_str .= "document: https:doc.phpspider.org\n";
+
+        $display_str .= $this->display_task_ui();
+
+        if (self::$multiserver) {
+            $display_str .= $this->display_server_ui();
+        }
+
+        $display_str .= $this->$display_collect_ui();
+
+        // 清屏
+        // $this->clear_echo();
+        // 返回到第一行,第一列
+        // echo "\033[0;0H";
+        $display_str .= "---------------------------------------------------------------------\n";
+        $display_str .= "Press Ctrl-C to quir. Start Success.";
+        if (self::$terminate) {
+            $display_str .= "\n\033[33mWait for the process exits...\033[0m";
+        }
+        // echo $display_str;
+        $this->replace_echo($display_str);
+    }
 }
