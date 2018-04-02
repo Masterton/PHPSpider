@@ -485,6 +485,18 @@ class PHPSpider
     }
 
     /**
+     * 获取配置信息
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 14:14:54
+     */
+    public function get_config($name)
+    {
+        return empty(self::$configs[$name]) ? array() : self::$configs[$name];
+    }
+
+    /**
      * 爬虫开始运行
      *
      * @author Masterton <zhengcloud@foxmail.com>
@@ -780,6 +792,54 @@ class PHPSpider
     }
 
     /**
+     * 检查是否终止当前进程
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 14:28:55
+     */
+    public function check_terminate()
+    {
+        if (!self::$terminate) {
+            return false;
+        }
+
+        // 删除当前任务状态
+        $this->del_task_status(self::$serverid, self::$taskid);
+
+        if (self::$taskmaster) {
+            // 检查子进程是否都退出
+            while (true) {
+                $all_stop = true;
+                for ($i = 2; $i < self::$tasknum; $i++) {
+                    // 只要一个还活着就说明没有完全退出
+                    $task_status = $this->get_task_status(self::$serverid, $i);
+                    if ($task_status) {
+                        $all_stop = false;
+                    }
+                }
+                if ($all_stop) {
+                    break;
+                } else {
+                    Log::warn("Task stop waiting...");
+                }
+                sleep(1);
+            }
+
+            $this->del_server_list(self::$serverid);
+
+            // 显示最后结果
+            Log::$log_show = true;
+            $spider_time_run = Util::time2second(intval(microtime(true) - self::$time_start));
+            Log::note("Spider finished in {$spider_time_run}");
+
+            $get_collected_url_num = $this->get_collected_url_num();
+            Log::note("Total pages: {$get_collected_url_num} \n");
+        }
+        exit();
+    }
+
+    /**
      * 导出验证
      *
      * @return void
@@ -862,23 +922,6 @@ class PHPSpider
     }
 
     /**
-     * 是否入口页面
-     *
-     * @param mixed $url
-     * @return void
-     * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-29 18:03:13
-     */
-    public static function is_scan_page($url)
-    {
-        $parse_url = parse_url($url);
-        if (empty($parse_url['host']) || !in_array($parse_url['host'], self::$configs['domains'])) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * 清掉多任务和分布式
      *
      * @return void
@@ -899,6 +942,98 @@ class PHPSpider
         for ($i = 1; $i <= self::$tasknum; $i++) {
             $this->del_task_status(self::$serverid, $i);
         }
+    }
+
+    /**
+     * 设置任务状态,主进程和子进程每次成功采集一个页面后调用
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:40:58
+     */
+    public function set_task_status()
+    {
+        // 每采集成功一个页面,生成当前进程转台到文件,供主进程使用
+        $mem = round(memory_get_usage(true) / (1024*1024), 2);
+        $use_time = microtime(true) - self::$time_start;
+        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2);
+        $status = array(
+            'id' => self::$taskid,
+            'pid' => self::$taskpid,
+            'mem' => $mem,
+            'collect_succ' => self::$collect_succ,
+            'collect_fail' => self::$collect_fail,
+            'speed' => $speed,
+        );
+        $task_status = json_encode($status);
+
+        if (self::$use_redis) {
+            $key = "server-" . self::$serverid . "-task_status-" . self::$taskid;
+            Queue::set($key, $tsak_status);
+        } else {
+            self::$task_status = array($task_status);
+        }
+    }
+
+    /**
+     * 删除任务状态
+     *
+     * @param int $serverid
+     * @param int $taskid
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:31:53
+     */
+    public function del_task_status($serverid, $taskid)
+    {
+        if (!self::$use_redis) {
+            return false;
+        }
+        $key = "server-{$serverid}-task_status-{$taskid}";
+        Queue::del($key);
+    }
+
+    /**
+     * 获得任务状态,主进程才会调用
+     *
+     * @param int $serverid
+     * @param int $taskid
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:48:27
+     */
+    public function get_task_status($serverid, $taskid)
+    {
+        if (!self::$use_redis) {
+            return false;
+        }
+
+        $key = "server-{$serverid}-task_status-{$taskid}";
+        $task_status = Queue::get($key);
+        return $task_status;
+    }
+
+    /**
+     * 获得任务状态,主进程才会调用
+     *
+     * @param int $serverid
+     * @param int $tasknum
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:51:51
+     */
+    public function get_task_status_list($serverid = 1, $tasknum)
+    {
+        $task_status = array();
+        if (self::$use_redis) {
+            for ($i = 1; $i <= $taksnum; $i++) {
+                $key = "server-{$serverid}-task_status-" . $i;
+                $task_status[] = Queue::get($key);
+            }
+        } else {
+            $taks_status = self::$task_status;
+        }
+        return $task_status;
     }
 
     /**
@@ -938,21 +1073,33 @@ class PHPSpider
     }
 
     /**
-     * 删除任务状态
+     * 从服务器列表中删除当前服务器信息
      *
      * @param int $serverid
-     * @param int $taskid
      * @return void
      * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-30 10:31:53
+     * @time 2018-4-2 15:55:33
      */
-    public function del_task_status($serverid, $taskid)
+    public function del_server_list($serverid)
     {
         if (!self::$use_redis) {
             return false;
         }
-        $key = "server-{$serverid}-task_status-{$taskid}";
-        Queue::del($key);
+
+        $server_list_json = Queue::get("server_list");
+        $server_list = array();
+        if ($server_list_json) {
+            $server_list = json_decode($server_list_json, true);
+            if (isset($server_list[$serverid])) {
+                unset($server_list[$serverid]);
+            }
+
+            // 删除完当前的任务列表如果还存在,就更新下一下redis
+            if (!empty($server_list)) {
+                ksort($server_list);
+                Queue::set("server_list", json_encode($server_list));
+            }
+        }
     }
 
     /**
@@ -996,6 +1143,111 @@ class PHPSpider
         }
 
         return $status;
+    }
+
+    /**
+     * 一般在 on_scan_page 和 on_list_page
+     * 回调函数中调用,用来往待爬队列中添加url
+     * 两个进程同时调用这个方法,传递相同的url的时候,
+     * 就会出现url重复进入队列
+     *
+     * @param mixed $url
+     * @param mixed $options
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 14:19:35
+     */
+    public function add_url($url, $options = array(), $depth = 0)
+    {
+        // 投递状态
+        $status = false;
+
+        $link = $opeions;
+        $link['url'] = $url;
+        $link['depth'] = $depth;
+        $link = $this->link_uncompress($link);
+
+        if ($this->is_list_page($url)) {
+            $link['url_typr'] = "list_page";
+            $status = $this->queue_lpush($link);
+        }
+
+        if ($this->is_content_page($url)) {
+            $link['url_type'] = "content_page";
+            $status = $this->queue_lpush($link);
+        }
+
+        if ($status) {
+            if ($link['url_type'] == 'scan_page') {
+                Log::debug("Find scan page: {$url}");
+            } elseif ($link['url_typr'] == 'list_page') {
+                Log::debug("Find list page: {$url}");
+            } elseif ($link['url_type'] == 'content_page') {
+                Log::debug("Find content page: {$url}");
+            }
+        }
+        return $status;
+    }
+
+    /**
+     * 是否入口页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-29 18:03:13
+     */
+    public static function is_scan_page($url)
+    {
+        $parse_url = parse_url($url);
+        if (empty($parse_url['host']) || !in_array($parse_url['host'], self::$configs['domains'])) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 是否列表页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:53:41
+     */
+    public function is_list_page($url)
+    {
+        $result = false;
+        if (!empty(self::$configs['list_url_regexes'])) {
+            foreach (self::$configs['list_url_regexes'] as $regex) {
+                if (preg_match("#{$regex}#i", $url)) {
+                    $result = true;
+                    break;
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * 是否内容页面
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 10:57:35
+     */
+    public function is_content_page($url)
+    {
+        $result = false;
+        if (!empty(self::$configs['content_url_regexes'])) {
+            foreach (self::$configs['content_url_regexes'] as $regex) {
+                if (preg_match("#{$regex}#i", $url)) {
+                    $result = true;
+                    break;
+                }
+            }
+        }
+        return $result;
     }
 
     /**
@@ -1072,50 +1324,6 @@ class PHPSpider
         );
 
         return $link;
-    }
-
-    /**
-     * 是否列表页面
-     *
-     * @param mixed $url
-     * @return void
-     * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-30 10:53:41
-     */
-    public function is_list_page($url)
-    {
-        $result = false;
-        if (!empty(self::$configs['list_url_regexes'])) {
-            foreach (self::$configs['list_url_regexes'] as $regex) {
-                if (preg_match("#{$regex}#i", $url)) {
-                    $result = true;
-                    break;
-                }
-            }
-        }
-        return $result;
-    }
-
-    /**
-     * 是否内容页面
-     *
-     * @param mixed $url
-     * @return void
-     * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-30 10:57:35
-     */
-    public function is_content_page($url)
-    {
-        $result = false;
-        if (!empty(self::$configs['content_url_regexes'])) {
-            foreach (self::$configs['content_url_regexes'] as $regex) {
-                if (preg_match("#{$regex}#i", $url)) {
-                    $result = true;
-                    break;
-                }
-            }
-        }
-        return $result;
     }
 
     /**
@@ -1272,49 +1480,6 @@ class PHPSpider
             $lsize = count(self::$collect_queue);
         }
         return $lsize;
-    }
-
-    /**
-     * 采集深度加一
-     *
-     * @param int $depth 采集深度
-     * @return void
-     * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-30 13:57:59
-     */
-    public function incr_depth_num($depth)
-    {
-        if (self::$use_redis) {
-            $lock = "lock-depth_num";
-            // 锁2秒
-            if (Queue::lock($lock, time(), 2)) {
-                if (Queue::get("depth_num") < $depth) {
-                    Queue::set("depth_num", $depth);
-                }
-                Queue::unlock($lock);
-            }
-        } else {
-            if (self::$depth_num < $depth) {
-                self::$depth_num = $depth;
-            }
-        }
-    }
-
-    /**
-     * 获取采集深度
-     *
-     * @return void
-     * @author Masterton <zhengcloud@foxmail.com>
-     * @time 2018-3-30 14:03:18
-     */
-    public function get_depth_num()
-    {
-        if (self::$use_redis) {
-            $depth_num = Queue::get("depth_num");
-            return $depth_num ? $depth_num : 0;
-        } else {
-            return self::$depth_num;
-        }
     }
 
     /**
@@ -1503,6 +1668,207 @@ class PHPSpider
             self::$configs['interval'] = 100;
         }
         usleep(self::$configs['interval'] * 1000);
+    }
+
+    /**
+     * 获取等待爬取页面数量
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:11:50
+     */
+    public function get_collect_url_num()
+    {
+        if (self::$use_redis) {
+            $count = Queue::get("collect_urls_num");
+        } else {
+            $count = self::$collect_urls_num;
+        }
+        return $count;
+    }
+
+    /**
+     * 已采集页面数量加一
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:18:04
+     */
+    public function incr_collected_url_num($url)
+    {
+        if (self::$use_redis) {
+            Queue::incr("collected_urls_num");
+        } else {
+            self::$collected_urls_num++;
+        }
+    }
+
+    /**
+     * 获取已经爬取页面数量
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 15:15:04
+     */
+    public function get_collected_url_num()
+    {
+        if (self::$use_redis) {
+            $count = Queue::get("collected_urls_num");
+        } else {
+            $count = self::$collected_urls_num;
+        }
+        return $count;
+    }
+
+    /**
+     * 采集深度加一
+     *
+     * @param int $depth 采集深度
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 13:57:59
+     */
+    public function incr_depth_num($depth)
+    {
+        if (self::$use_redis) {
+            $lock = "lock-depth_num";
+            // 锁2秒
+            if (Queue::lock($lock, time(), 2)) {
+                if (Queue::get("depth_num") < $depth) {
+                    Queue::set("depth_num", $depth);
+                }
+                Queue::unlock($lock);
+            }
+        } else {
+            if (self::$depth_num < $depth) {
+                self::$depth_num = $depth;
+            }
+        }
+    }
+
+    /**
+     * 获得采集深度
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-3-30 14:03:18
+     */
+    public function get_depth_num()
+    {
+        if (self::$use_redis) {
+            $depth_num = Queue::get("depth_num");
+            return $depth_num ? $depth_num : 0;
+        } else {
+            return self::$depth_num;
+        }
+    }
+
+    /**
+     * 提取到的field数目加一
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 14:04:11
+     */
+    public function incr_fields_num()
+    {
+        if (self::$use_redis) {
+            $fields_num = Queue::incr("fields_num");
+        } else {
+            self::$fields_num++;
+            $fields_num = self::$fields_num;
+        }
+        return $fields_num;
+    }
+
+    /**
+     * 提取到的field数目
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 14:06:38
+     */
+    public function get_fields_num()
+    {
+        if (self::$use_redis) {
+            $fields_num = Queue::get("fields_num");
+        } else {
+            $fields_num = self::$fields_num;
+        }
+        return $fields_num ? $fields_num : 0;
+    }
+
+    /**
+     * 采用xpath分析提取字段
+     *
+     * @param mixed $html
+     * @param mixed $selector
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 13:57:47
+     */
+    public function get_fields_xpath($html, $selector, $fieldname)
+    {
+        $result = Selector::select($html, $selector);
+        if (Selector::$error) {
+            Log::error("Field(\"{$fieldname}\") " . Selector::$error . "\n");
+        }
+        return $result;
+    }
+
+    /**
+     * 采用正则分析提取字段
+     *
+     * @param mixed $html
+     * @param mixed $selector
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 13:54:47
+     */
+    public function get_fields_regex($html, $selector, $fieldname)
+    {
+        $result = Selector::select($html, $selector, 'regex');
+        if (Selector::$error) {
+            Log::error("Field(\"{$fieldname}\") " . Selector::$error . "\n");
+        }
+        return $result;
+    }
+
+    /**
+     * 采用CSS选择器提取字段
+     *
+     * @param mixed $html
+     * @param mixed $selector
+     * @param mixed $fieldname
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 13:51:06
+     */
+    public function get_fields_css($html, $selector, $fieldname)
+    {
+        $result = Selector::select($html, $selector, 'css');
+        if (Selector::$error) {
+            Log::error("Field(\"{$fieldname}\") " . Selector::$error . "\n");
+        }
+        return $result;
+    }
+
+    /**
+     * 清空shell输出内容
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 13:48:02
+     */
+    public function clear_echo()
+    {
+        $arr = array(27, 91, 72, 27, 91, 50, 74);
+        foreach ($arr as $a) {
+            print chr($a);
+        }
+        // array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
     }
 
     /**
