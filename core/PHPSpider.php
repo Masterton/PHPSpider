@@ -1604,4 +1604,130 @@ class PHPSpider
         // echo $display_str;
         $this->replace_echo($display_str);
     }
+
+    /**
+     * 展示任务界面
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmial.com>
+     * @time 2018-4-2 11:42:42
+     */
+    public function display_task_ui()
+    {
+        $display_str = "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
+
+        $display_str .= "\033[47;30mtaskid\033[0m" . 
+            str_pad('', self::$taskid_length+2-strlen('taskid')) . 
+            "\033[47;30mtaskid\033[0m" . 
+            str_pad('', self::$pid_length+2-strlen('taskpid')) . 
+            "\033[47;30mmem\033[0m" . 
+            str_pad('', self::$mem_length+2-strlen('mem')) . 
+            "\033[47;30mcollect succ\033[0m" . 
+            str_pad('', self::$urls_length-strlen('collect succ')) . 
+            "\033[47;30mcollect fail\033[0m" . 
+            str_pad('', self::$urls_length-strlen('collect fail')) . 
+            "\033[47;30mspeed\033[0m" . 
+            str_pad('', self::$speed_length+2-strlen('speed')) . 
+            "\n";
+
+        // "\033[32;40m [OK] \033[0m";
+        $task_status = $this->get_task_status_list(self::$serverid, self::$tasknum);
+        foreach ($task_status as $json) {
+            $task = json_decode($json, true);
+            if (empty($task)) {
+                continue;
+            }
+            $display_str .= str_pad($task['id'], self::$taskid_length+2) . str_pad($task['pid'], self::$pid_length+2) . str_pad($task['mem'] . "MB", self::$mem_length+2) . str_pad($task['collect_succ'], self::$urls_length) . str_pad($task['collect_fail'], self::$urls_length) . str_pad($task['speed'] . "/s", self::$speed_length+2) . "\n";
+        }
+        // echo "\033[9;0H";
+        return $display_str;
+    }
+
+    /**
+     * 显示服务器界面
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 11:57:27
+     */
+    public function display_server_ui()
+    {
+        $display_str = "-------------------------------\033[47;30m SERVER \033[0m------------------------------\n";
+
+        $display_str .= "\033[47;30mserver\033[0m" . 
+            str_pad('', self::$server_length+2-strlen('serverid')) . 
+            "\033[47;30mtasknum\033[0m" . 
+            str_pad('', self::$tasknum_length+2-strlen('tasknum')) . 
+            "\033[47;30mmem\033[0m" . 
+            str_pad('', self::$mem_length+2-strlen('mem')) . 
+            "\033[47;30mcollect succ\033[0m" . 
+            str_pad('', self::$urls_length-strlen('collect succ')) . 
+            "\033[47;30mcollect fail\033[0m" . 
+            str_pad('', self::$urls_length-strlen('collect fail')) . 
+            "\033[47;30mspeed\033[0m" . 
+            str_pad('', self::$speed_length+2-strlen('speed')) . 
+            "\n";
+
+        $server_list_json = Queue::get("server_list");
+        $server_list = json_decode($server_list_json, true);
+        foreach ($server_list as $server) {
+            $serverid = $server['serverid'];
+            $tasknum = $server['tasknum'];
+            $mem = 0;
+            $speed = 0;
+            $collect_succ = $collect_fail = 0;
+            $task_status = $this->get_task_status_list($serverid, $tasknum);
+            foreach ($task_status as $json) {
+                $task = json_decode($json, true);
+                if (empty($task)) {
+                    continue;
+                }
+                $mem += $task['mem'];
+                $speed += $task['speed'];
+                $collect_fail += $task['collect_fail'];
+                $collect_succ += $task['collect_succ'];
+            }
+
+            $display_str .= str_pad($serverid, self::$server_length) . 
+                str_pad($tasknum, self::$tasknum_length+2) . 
+                str_pad($mem . "MB", self::$mem_length+2) . 
+                str_pad($collect_succ, self::$urls_length) . 
+                str_pad($collect_fail, self::$urls_length) . 
+                str_pad($speed . "/s", self::$speed_length+2) . 
+                "\n";
+        }
+        return $display_str;
+    }
+
+    /**
+     * 显示抓取界面
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-2 13:40:24
+     */
+    public function display_collect_ui()
+    {
+        $display_str = "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
+
+        $display_str .= "\033[47;30mfind pages\033[0m" . str_pad('', 16-strlen('find pages')) . 
+            "\033[47;30mqueue\033[0m" . str_pad('', 14-strlen('queue')) . 
+            "\033[47;30mcollected\033[0m" . str_pad('', 15-strlen('collected')) . 
+            "\033[47;30mfields\033[0m" . str_pad('', 15-strlen('fields')) . 
+            "\033[47;30mdepth\033[0m" . str_pad('', 12-strlen('depth')) . 
+            "\n";
+
+        $collect   = $this->get_collect_url_num();
+        $collected = $this->get_collected_url_num();
+        $queue     = $this->queue_lsize();
+        $fields    = $this->get_fields_num();
+        $depth     = $this->get_depth_num();
+        $display_str .= str_pad($collect, 16);
+        $display_str .= str_pad($queue, 14);
+        $display_str .= str_pad($collected, 15);
+        $display_str .= str_pad($fields, 15);
+        $display_str .= str_pad($depth, 12);
+        $display_str .= "\n";
+        return $display_str;
+    }
 }
