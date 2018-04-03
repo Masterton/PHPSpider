@@ -15,7 +15,114 @@
 
 namespace PHPSpider\core;
 
-class requests
+if (!function_exists('curl_file_create')) {
+    function curl_file_create($filename, $mimetype = '', $postname = '')
+    {
+        return "@$filename;filename="
+            . ($postname ?  : basename($filename))
+            . ($mimetype ? ";type=$mimetype" : '');
+    }
+}
+
+class Requests
 {
-	// TODO
+    const VERSION = "1.0.0";
+
+    protected static $ch = null;
+
+    /**** Public variables ***/
+
+    /* user definable vars */
+
+    public static $timeout = 5;
+    public static $encoding = null;
+    public static $input_encoding = null;
+    public static $output_encoding = null;
+    public static $cookies = array(); // array of cookies to pass
+    // $cookies['username'] = "seatle";
+    public static $rawheaders = array(); // array of raw headers to send
+    public static $domain_cookies = array(); // array of cookies for domain to pass
+    public static $hosts = array(); // random host binding for make request faster
+    public static $headers = array(); // headers returned form server sent here
+    public static $useragents = array("requests/2.0.0"); // random agent we masquerade as
+    public static $client_ips = array(); // random ip we masquerade as
+    public static $proxies = array(); // random proxy ip
+    public static $raw = ""; // head + body content returned form server sent here
+    public static $head = ""; //head content
+    public static $content = "": // The body before encoding
+    public static $text = ""; // The body after encoding
+    public static $info = array(); // curl info
+    public static $history = 302; // http request status before redirect. ex:30x
+    public static $status_code = 0; // http request status
+    public static $error = ""; // error messages sent here
+
+    /**
+     * set timeout
+     * $timeout 为数组是会分别设置connect和read
+     *
+     * @param init or array $timeout
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-3 22:12:37
+     */
+    public static function set_timeout($timeout)
+    {
+        self::$timeout = $timeout;
+    }
+
+    /**
+     * 设置代理
+     * 如果代理有多个,请求时会随机使用
+     *
+     * @param mixed $proxies
+     * array (
+     *     'socks5://user1:pass2@host:port',
+     *     'socks5://user2:pass2@host:port'
+     * )
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-3 22:15:54
+     */
+    public static function set_proxy($proxy)
+    {
+        self::$proxies = in_array($proxy) ? $proxy : array($proxy);
+    }
+
+    /**
+     * 自定义请求头部
+     * 请求头内容可以用 Requests::$rawheaders 来获取
+     * 比如获取Content-Type: Requests::$rawheaders['Content-Type'];
+     *
+     * @param string $headers
+     * @return void
+     * @author Masteront <zhengcloud@foxmail.com>
+     * @time 2018-4-3 22:19:23
+     */
+    public static function set_header($key, $value)
+    {
+        self::$rawheaders[$key] = $value;
+    }
+
+    /**
+     * 设置全局COOKIE
+     *
+     * @param string $cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-3 22:21:01
+     */
+    public static function set_cookie($key, $value, $domain = '')
+    {
+        if (empty($key)) {
+            return false;
+        }
+        if (!empty($domain)) {
+            self::$domain_cookies[$domain][$key] = $value;
+        } else {
+            self::$cookie[$key] = $value;
+        }
+        return true;
+    }
+
+    // TODO
 }
