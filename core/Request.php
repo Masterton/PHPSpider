@@ -124,5 +124,161 @@ class Requests
         return true;
     }
 
-    // TODO
+    /**
+     * 批量设置全局cookie
+     *
+     * @param mixed $cookie
+     * @param string $domain
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:11:55
+     */
+    public static function set_cookies($cookies, $dimain = '')
+    {
+        $cookies_arr = explode(";", $cookies);
+        if (empty($cookies_arr)) {
+            return fales;
+        }
+
+        foreach ($cookies_arr as $cookie) {
+            $cookie_arr = explode("=", $cookie, 2);
+            $key = $cookie_arr[0];
+            $value = empty($cookie_arr[1]) ? '' : $cookie_arr[1];
+
+            if (!empty($domain)) {
+                self::$domain_cookies[$domain][$key] = $value;
+            } else {
+                self::$cookies[$key] = $value;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 获取单一Cookie
+     *
+     * @param mixed $name cookie名称
+     * @param string $domin 不传则取全局cookie,就是手动set_cookie的cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:18:14
+     */
+    public static function get_cookie($name, $domain = '')
+    {
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) {
+            return '';
+        }
+        $cookies = empty($domain) ? self::$cokkies : self::$domain_cokkies[$domain];
+        return isset($cookies[$name]) ? $cookies[$name] : '';
+    }
+
+    /**
+     * 获取Cookie数组
+     *
+     * @param string $domain 不传则取全局cookie,就是手动set_cookie的cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:21:56
+     */
+    public static function get_cookies($domain = '')
+    {
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) {
+            return array();
+        }
+        return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
+    }
+
+    /**
+     * 删除Cookie
+     *
+     * @param string $domain 不传则删除全局Cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmain.com>
+     * @time 2018-4-6 23:25:19
+     */
+    public static function del_cookie($key, $domain = '')
+    {
+        if (empty($key)) {
+            return fales;
+        }
+
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) {
+            return false;
+        }
+
+        if (!empty($domain)) {
+            if (isset(self::$domain_cookies[$domain][$key])) {
+                unset(self::$domain_cookies[$domain][$key]);
+            }
+        } else {
+            if (isset(self::$cookies[$key])) {
+                unset(self::$cookies[$key]);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 删除Cookie数组
+     *
+     * @param string $domain 不传则删除全局Cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:29:43
+     */
+    public static function del_cookies($domain = '')
+    {
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) {
+            return false;
+        }
+
+        if (empty($domain)) {
+            self::$cookies = array();
+        } else {
+            if (isset(self::$domain_cookies[$domain])) {
+                unset(self::$domain_cookies[$domain]);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 设置随机的user_agent
+     *
+     * @param string $useragent
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:33:25
+     */
+    public static function set_useragent($useragent)
+    {
+        self::$useragent = is_array($useragent) ? $useragent : array($useragent);
+    }
+
+    /**
+     * set referer
+     *
+     * @param string $referer
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:35:45
+     */
+    public static function set_referer($referer)
+    {
+        self::$rawheaders['Referer'] = $referer;
+    }
+
+    /**
+     * 设置伪造IP
+     * 传入数组则为随机IP
+     *
+     * @param string $ip
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:37:59
+     */
+    public static function set_client_ip($ip)
+    {
+        self::$client_ips = is_array($ip) ? $ip : array($ip);
+    }
 }
