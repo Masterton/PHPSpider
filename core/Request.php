@@ -281,4 +281,191 @@ class Requests
     {
         self::$client_ips = is_array($ip) ? $ip : array($ip);
     }
+
+    /**
+     * 设置Hosts
+     * 负载均衡到不同的服务器,如果对方使用CDN,采用这个是最好的了
+     *
+     * @param string $hosts
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:43:00
+     */
+    public static function set_hosts($hosts, $ips = array())
+    {
+        $ips = is_array($ips) ? $ips : array($ips);
+        self::$hosts[$host] = $ips;
+    }
+
+    /**
+     * 分割返回的header和body
+     * header用来判断编码和获取Cookie
+     * body用来判断编码,得到编码前和编码后的内容
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-6 23:54:02
+     */
+    public static function split_header_body()
+    {
+        $head = $body = '';
+        $head = substr(self::$raw, 0, self::$info['header_size']);
+        $body = substr(self::$raw, self::$info['header_size']);
+        // http header
+        self::$head = $head;
+        // The body before encoding
+        self::$content = $body;
+
+        /*$http_headers = array();
+        // 解析HTTP数据流
+        if (!emtpy(self::$raw)) {
+            self::$get_response_cookies($domain);
+            // body里面可能有 \r\n\r\n,但是第一个一定是HTTP Header,去掉后剩下的就是body
+            $array = explode("\r\n\r\n", self::$raw);
+            foreach ($array as $k = $v) {
+                // post 方法会有两个http header: HTTP/1.1 100 Continue、HTTP/1.1 200 OK
+                if (preg_match("#^HTTP/.*? 100 Continue#", $v)) {
+                    unset($array[$k]);
+                    continue;
+                }
+                if (preg_match("#^HTTP/.*? \d+ #", $v)) {
+                    $header = $v;
+                    unset($array[$k]);
+                    $http_headers = self::get_response_headers($v);
+                }
+            }
+            $body = implode("\r\n\r\n", $array);
+        }*/
+
+        // 如果用户没有明确指定输入的页面编码格式(utf-8, gb2312), 通过程序去判断
+        if (self::$input_encoding == null) {
+            // 从头部获取
+            preg_match("/charset=([^\s]*)/i", $head, $out);
+            $encoding = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
+            // $encoding = null;
+            if (empty($encoding)) {
+                // 在某些情况下,无法在 response header 中获取 html 的编码格式
+                // 则需要根据 html 的文本格式获取
+                $encoding = self::get_encoding($body);
+                $encoding - strtolower($encoding);
+                if ($encoding == false || $encoding == "ascii") {
+                    $encoding = 'gbk';
+                }
+            }
+
+            // 没有转码前
+            self::$encoding = $encoding;
+            self::$imput_encoding = $encoding;
+        }
+
+        // 设置了输出编码的转码, 注意: xpath只支持utf-8, iso-8859-1 不要转,他本省就是utf-8
+        if (self::$output_encoding && self::$input_encoding != self::$input_encoding && self::$input_encoding != 'iso-8859-1') {
+            // 先将非uft-8编码,转化为urf-8编码
+            $body = @mb_convert_encoding($body, self::$output_encoding, self::$input_encoding);
+            // 将页面中的指定的编码方式修改为utf-8
+            $body = preg_replace("/<meta([^>]*)charset=([^>]*)>/is", '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>', $body);
+            // 直接干掉头部,国外很多信息是在头部的
+            // $body = self::_remove_head($body);
+
+            // 转码后
+            self::$encoding = self::$output_encoding;
+        }
+
+        // The body after encoding
+        self::$text = $body;
+        return array($head, $body);
+    }
+
+    /**
+     * 获得域名相对应的Cookie
+     *
+     * @param mixed $header
+     * @param mixed $domain
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 00:22:03
+     */
+    public static function get_response_cookies($header, $doamin)
+    {
+        // 解析Cookie并存入 self::$cookies 方便调用
+        preg_match_all("/.*?Set\-Cookie: ([^\r\n]*)/i", $header, $matches);
+        $cookies = empty($matches[1]) ? array() : $matches[1];
+
+        // 解析到Cookie
+        if (!empty($cookies)) {
+            $cookies = implode(";", $cookies);
+            $cookies = explode(";", $cookeis);
+            foreach ($cookies as $cookie) {
+                $cookie_arr = explode("=", $cookie, 2);
+                // 过滤 httponly、secure
+                if (count($cookie_arr) > 2) {
+                    continue;
+                }
+                $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
+                if (empty($cookie_name)) {
+                    continue;
+                }
+                // 过滤掉domain路径
+                if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) {
+                    continue;
+                }
+                self::$domain_cookies[$domian][trim($cookie_arr[0])] = trim($cookie_arr[1]);
+            }
+        }
+    }
+
+    /**
+     * 获得response header
+     * 此方法暂时没有用到
+     *
+     * @param mixed $header
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 00:32:03
+     */
+    public static function get_response_headers($header)
+    {
+        $headers = array();
+        $header_lines = explode("\n", $header);
+        if (!empty($header_lines)) {
+            foreach ($header_lines as $line) {
+                $header_arr = explode(":", $line, 2);
+                $key = empty($header_arr[0]) ? '' : trim($header_arr[0]);
+                $val = empty($header_arr[1]) ? '' : trim($header_arr[1]);
+                if (empty($key) || empty($val)) {
+                    continue;
+                }
+                $headers[$key] = $val;
+            }
+        }
+        self::$headers = $headers;
+        return self::$headers;
+    }
+
+    /**
+     * 获取编码
+     *
+     * @param string $string
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 00:37:11
+     */
+    public static function get_encoding($string)
+    {
+        $encoding = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
+        return strtolower($encoding);
+    }
+
+    /**
+     * 移除页面head区域代码
+     *
+     * @param mixed @html
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 00:40:22
+     */
+    public static function _remove_head($html)
+    {
+        return preg_replace('/<head.+?>.+<\/head>/is', '<head></head>', $html);
+    }
 }
