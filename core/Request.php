@@ -468,4 +468,411 @@ class Requests
     {
         return preg_replace('/<head.+?>.+<\/head>/is', '<head></head>', $html);
     }
+
+    /**
+     * 简单的判断一下参数是否为一个URL链接
+     *
+     * @param string $str
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 14:43:13
+     */
+    public static function _is_url($url)
+    {
+        // $pattern = '/^http(s)?:\\/\\/.+/';
+        $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
+        if (preg_match($pattern, $url)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 初始化 CURL
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 14:48:26
+     */
+    public static function init()
+    {
+        if (!is_resource(self::$ch)) {
+            self::$ch = curl_init();
+            curl_setopt(self::$ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt(self::$ch, CURLOPT_HEADER, false);
+            curl_setopt(self::$ch, CURLOPT_USERAGENT, "phpspider-requests/" . self::VERSION);
+            // 如果设置了两个时间,就分开设置
+            if (is_array(self::$timeout)) {
+                curl_setopt(self::$ch, CURLOPT_CONNECTTIMEOUT, self::$timeout[0]);
+                curl_setopt(self::$ch, CURLOPT_TIMEOUT, self::$timeout[1]);
+            } else {
+                curl_setopt(self::$ch, CURLOPT_CONNECTTIMEOUT, self::$timeout[0]);
+                curl_setopt(self::$ch, CURLOPT_TIMEOUT, self::$timeout[1]);
+            }
+            // 在多线程处理场景下使用超时选项时,会忽略signals对应的处理函数,但是无耐的是还有小概率的crash情况发生
+            curl_setopt(self::$ch, CURLOPT_NOSIGNAL, true);
+        }
+        return self::$ch;
+    }
+
+    /**
+     * get 请求
+     *
+     * @param string $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 14:57:56
+     */
+    public static function get($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'get', $fields, NULL, $allow_redirects, $cert);
+    }
+
+    /**
+     * post 请求
+     * $fields 有三种类型:1、数组 2、http query 3、json
+     * 1、array('name' => 'yangzetao')
+     * 2、http_build_query(array('name' => 'yangzetao'))
+     * 3、json_encode(array('name' => 'yanzetao'))
+     * 前两汇总是普通的post,可以用$_POST方式获取
+     * 第三种是post stream(json rpc, 其实就是webservice)
+     * 虽然是post方式,但是只能用流方式 http://input 后者 $HTTP_RAW_POST_DATA 获取
+     *
+     * @param mixed $url
+     * @param array $fields
+     * @param mixed $proxies
+     * @return coid
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:05:43
+     */
+    public static function post($url, $fields = array(), $files = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'POST', $fields, $files, $allow_redirects, $cert);
+    }
+
+    /**
+     * put 请求
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:08:37
+     */
+    public static function put($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'PUT', $fields, $allow_redirects, $cert);
+    }
+
+    /**
+     * delete 请求
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:11:07
+     */
+    public static function delete($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'DELETE', $fields, $allow_redirects, $cert);
+    }
+
+    /**
+     * head 请求
+     * 响应HTTP头域里的元信息
+     * 此方法被用来获取请求实体的元信息而不需要传输实体主体(entity-body)
+     * 此方法经常被用来测试超文本链接的有效性,可访问性,和最近的改变
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:28:57
+     */
+    public static function head($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'HEAD', $fields, $allow_redirects, $cert);
+    }
+
+    /**
+     * options 请求
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:32:10
+     */
+    public static function options($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'OPTIONS', $fields, $allow_redirects, $cert);
+    }
+
+    /**
+     * patch 请求
+     *
+     * @param mixed $url
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:34:39
+     */
+    public static function patch($url, $fields = array(), $allow_redirects = true, $cert = NULL)
+    {
+        self::init();
+        return self::request($url, 'PATCH', $fields, $allow_redirects, $cert);
+    }
+
+    /**
+     * request
+     *
+     * @param mixed $url 请求URL
+     * @param string $method 请求方法
+     * @param array $fields 表单字段
+     * @param array $files 上传文件
+     * @param mixed $cert CA证书
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 15:48:08
+     */
+    public static function request($url, $method = 'GET', $fields = array(), $files = array(), $allow_redirects = true, $cert = NULL)
+    {
+        $method = strtoupper($method);
+        if (!self::_is_url($url)) {
+            self::$error = "You have requested URL ({$url}) is not valid HTTP address";
+            return false;
+        }
+
+        // 如果是 get 方式,直接拼凑一个 url 出来
+        if ($method == "GET" && !empty($fields)) {
+            $url = $url . (strpos($url, "?") === false ? "?" : "&") . http_build_query($fields);
+        }
+
+        $parse_url = parse_url($url);
+        if (empty($parse_url) || empty($parse_url['host']) || !in_array($parse_url['scheme'], array('http', 'https'))) {
+            self::$error = "No connection adapters were found for '{$url}'";
+            return false;
+        }
+        $scheme = $parse_url['scheme'];
+        $domain = $parse_url['host'];
+
+        // 随机绑定 hosts,做负载均衡
+        if (self::$hosts) {
+            if (isset(self::$hosts[$domain])) {
+                $hosts = self::$hosts[$domain];
+                $key = rand(0, count($hosts)-1);
+                $ip = $hosts[$key];
+                $url = str_replace($domain, $ip, $url);
+                self::$rawheaders['Host'] = $domain;
+            }
+        }
+
+        curl_setopt(self::$ch, CURLOPT_URL, $url);
+
+        if ($method != "GET") {
+            // 如果是 post 方式
+            if ($method == 'POST') {
+                curl_setopt(self::$ch, CURLOPT_POST, true);
+                $file_fields = array();
+                if (!empty($files)) {
+                    foreach ($files as $postname => $file) {
+                        $filepath = realpath($file);
+                        // 如果文件不存在
+                        if (!file_exists($filename)) {
+                            continue;
+                        }
+
+                        $filename = basename($filepath);
+                        $type = self::get_mimetypr($filepath);
+                        $file_fields[$postname] = curl_file_create($filepath, $type, $filename);
+                        // curl -F "name=seatle&file=@/absolute/path/to/image.png" http://localhost/uploadfile.php;
+                        // $cfile = '@' . realpath($filename) . ";type=" . $type . ";filename=" . $filename; 
+                    }
+                }
+            } else {
+                self::$rawheaders['X-HTTP-Method-Override'] = $method;
+                curl_setopt(self::$ch, CURLOPT_CUSTOMREQUEST, $method);
+            }
+            if (!empty($fields)) {
+                // 不是上传文件的,用http_build_query,能实现更好的兼容性,更小的请求数据包
+                if (empty($file_fields)) {
+                    // post 方式
+                    if (is_array($fields)) {
+                        $fields = http_build_query($fields);
+                    }
+                } else {
+                    // 有post数据
+                    if (is_array($fields) && !empty($fields)) {
+                        // 某些server可能会有问题
+                        $fields = array_merge($fields, $file_fields);
+                    } else {
+                        $fields = $file_fields;
+                    }
+                }
+                curl_setopt(self::$ch, CURLOPT_POSTFIELDS, $fields);
+            }
+        }
+
+        $cookies = self::get_cookies();
+        $domain_cookies = self::get_cookies($domain);
+        $cookies = array_merge($cookies, $domain_cookies);
+        // 是否设置了 cookie
+        if (!empty($cookies)) {
+            foreach ($cookies as $key => $value) {
+                $cookie_arr[] = $key . "=" . $value;
+            }
+            $cookies = implode("; ", $cookie_arr);
+            curl_setopt(self::$ch, CURLOPT_COOKIE, $cookies);
+        }
+
+        if (!empty(self::$useragents)) {
+            $key = rand(0, count(self::$useragents) - 1);
+            self::$rawheaders['User-Agent'] = self::$useragents[$key];
+        }
+
+        if (!empty(self::$client_ips)) {
+            $key = rand(0, count(self::$client_ips) - 1);
+            self::$rawheaders["CLIENT-IP"] = self::$client_ips[$key];
+            self::$rawheaders["X-FORWARDED-FOR"] = self::$client_ips[$key];
+        }
+
+        if (self::$rawheaders) {
+            $headers = array();
+            foreach (self::$rawheaders as $k => $v) {
+                $headers[] = $k . ": " . $v;
+            }
+            curl_setopt(self::$ch, CURLOPT_HTTPHEADER, $headers);
+        }
+
+        curl_setopt(self::$ch, CURLOPT_ENCODING, 'gzip');
+
+        // 关闭验证
+        if ($scheme == 'https') {
+            curl_setopt(self::$ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt(self::$ch, CURLOPT_SSL_VERIFYHOST, fasle);
+        }
+
+        if (self::$proxies) {
+            $key = rand(0, count(self::$proxies) - 1);
+            $proxy = self::$proxies[$key];
+            curl_setopt(self::$ch, CURLOPT_PROXY, $proxy);
+        }
+
+        // header + body, header 里面有 cookie
+        curl_setopt(self::$ch, CURLOPT_HEADER, true);
+        // 请求跳转后的内容
+        if ($allow_redirects) {
+            curl_setopt(self::$ch, CURLOPT_FOLLOWLOCATION, true);
+        }
+
+        self::$raw = curl_exec(self::$ch);
+        // 真实url
+        // $location = curl_getinfo(self::$ch, CURLOPT_EFFECTIVE_URL);
+        self::$info = curl_getinfo(self::$ch);
+        // print_r(self::$info);
+        self::$status_code = self::$info['http_code'];
+        if (self::$raw === false) {
+            self::$error = "Curl error: " . curl_error(self::$ch);
+            // trigger_error(self::$ch, E_USER_WARNING);
+        }
+
+        // 关闭句柄
+        curl_close(self::$ch);
+
+        // 请求成功之后才把URL存起来
+        list($header, $text) = self::split_header_body();
+        self::$history = self::get_history($header);
+        self::$headers = self::get_response_headers($header);
+        self::get_response_cookies($header, $domain);
+        // $data = substr($data, 10);
+        // $data = gzinflate($data);
+        return $next;
+    }
+
+    /**
+     * 获取历史记录
+     *
+     * @param mixed $header
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 16:53:24
+     */
+    public static function get_history($header)
+    {
+        $status_code = 0;
+        $lines = explode("\n", $header);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (preg_match("#^HTTP/.*? (\d+) Found#", $line, $out)) {
+                $status_code = empty($out[1]) ? 0 : intval($out[1]);
+            }
+        }
+        return $status_code;
+    }
+
+    /**
+     * 获取mimetype
+     *
+     * @param mixed $filepath
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 16:57:11
+     */
+    public static function get_mimetype($filepath)
+    {
+        $fp = finfo_open(FILEINFO_MIME);
+        $mime = finfo_file($fp, $filepath);
+        finfo_close($fp);
+        $arr = explode(";", $mime);
+        $type = empty($arr[0]) ? '' : $arr[0];
+        return $type;
+    }
+
+    /**
+     * 拼凑文件和表单
+     * 暂时没有用
+     *
+     * @param mixed $post_fields
+     * @param mixed $file_fields
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-7 17:00:30
+     */
+    public static function get_postfile_form($post_fields, $file_fields)
+    {
+        // 构造post数据
+        $data = '';
+        $delimiter = '-------------' . uniqid();
+        // 表单数据
+        foreach ($post_fields as $name => $content) {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name = "' . $name . '"';
+            $data .= "\r\n\r\n";
+            $data .= $content;
+            $data .= "\r\n";
+        }
+
+        foreach ($file_fields as $input_name => $file) {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name = "' . $input_name . '";' . ' filename="' . $file['filename'] . '"' . "\r\n";
+            $data .= "Content-Type: {$file['type']}\r\n";
+            $data .= "\r\n";
+            $data .= $file['content'];
+            $data .= "\r\n";
+        }
+
+        // 结束符
+        $data .= "--" . $delimiter . "--\r\n";
+
+        /*return array(
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type:multipart/form-data;boundary=' . $delimiter,
+                'Content-Length:' . strlen($data)
+            ),
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $data
+        );*/
+    }
 }
