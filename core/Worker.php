@@ -152,6 +152,226 @@ class Worker
     }
 
     /**
+     * 创建一个子进程
+     *
+     * @param Worker $worker
+     * @return Exception
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 21:20:40
+     */
+    public function fork_noe_worker($worker_id)
+    {
+        // $sockets = stream_socket_pari(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $pid = pcntl_fork()
+
+        // 主进程记录子进程pid
+        if ($pid > 0) {
+            self::$_worker_pids[$worker_id] = $pid
+        } elseif ($pid === 0) { // 子进程运行
+            $this->time_start = microtime(true);
+            $this->worker_id = $worker_id;
+            $this->worker_pid = posix_getpid();
+            $this->set_process_title($this->title);
+            $this->set_process_user($this->user);
+            // 清空master进程克隆过来的worker进程ID
+            self::$_worker_pids = array();
+            // $this->uninstall_signal();
+
+            // 设置worker进程的运行状态为运行中
+            self::$_status = "running";
+
+            // 注册进程退出回调,用来检查是否有错误(子进程里面注册)
+            register_shutdown_function(array($this, 'check_errors'));
+
+            // 如果设置了worker进程启动回调函数
+            if ($this->on_worker_start) {
+                call_user_func($this->on_worker_start, $this);
+            }
+
+            // 停止当前worker实例
+            $this->stop();
+            // 这里用0表示正常退出
+            exit(0);
+        } else {
+            Log::add("fork one worker fail", "Error");
+            exit;
+        }
+    }
+
+    /**
+     * 尝试设置运行当前进程的用户
+     *
+     * @param $user_name
+     * @return void
+     * @author Masterton <zhengcloud@foxmali.com>
+     * @time 2018-4-8 21:32:25
+     */
+    protected function set_process_user($user_name)
+    {
+        // 用户名为空或者当前用户不是root用户
+        if (empty($user_name) || posix_getpid() !== 0) {
+            return;
+        }
+        $user_info = posix_getpwnam($user_name);
+        if ($user_info['uid'] != posix_getuid() || $user_info['gid'] != posix_getgid()) {
+            if (!posix_setgid($user_info['gid']) || !posix_setuid($user_info['uid'])) {
+                Log::add("Can not run worker as " . $user_name . " , You shuld be root", "Error");
+            }
+        }
+    }
+
+    /**
+     * 设置当前进程的名称,在ps aux命令中有用
+     * 注意 需要php>=5.5或者安装了protitle
+     *
+     * @param string $title
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 21:38:55
+     */
+    protected function set_process_title($title)
+    {
+        if (!empty($title)) {
+            // 需要扩展
+            if (extension_loaded('proctitle') && function_exists('setproctitle')) {
+                @setproctitle($title);
+            } elseif (function_exists('cli_set_process_title')) { // php >= 5.5
+                cli_set_process_title($title);
+            }
+        }
+    }
+
+    /**
+     * 监控所有子进程的退出时间及退出码
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 22:00:44
+     */
+    public function monitor_workers()
+    {
+        // 设置master进程的运行状态为运行中
+        self::$_status = "running";
+        while (1) {
+            // pcntl_signal_dispatch 子进程无法接受到信号
+            // 如果有信号到来,尝试触发信号处理函数
+            // pcntl_signal_dispatch();
+            // 挂起进程,知道有子进程退出或者被信号打断
+            $status = 0;
+            $pid = pcntl_wait($status, WUNTRACED);
+            // 如果有信号到来,尝试触发信号处理函数
+            // pcntl_signal_dispatch();
+
+            // 子进程退出信号
+            if ($pid) {
+                // echo "worker[" . $pid . "] stop\n";
+                // $this->stop();
+
+                // 如果不是正常退出,是被kill等杀掉的
+                if ($status !== 0) {
+                    Log::add("worker {$pid} exit with status $status", "Warning");
+                }
+
+                // key 和 value 互换
+                $worker_pids = array_flip(self::$_worker_pids);
+                // 通过 pid 得到 worker_id
+                $worker_id = $worker_pids[$pid];
+                // 这里不unset掉,是为了进程重启
+                self::$_worker_pids[$worker_id] = 0;
+                // unset(self::$_worker_pids[$pid]);
+
+                // 再生成一个worker
+                if (!$this->run_once) {
+                    $this->fork_one_worker($worker_id);
+                }
+
+                // 如果所有子进程都退出了,触发主进程退出函数
+                $all_worker_stop = true;
+                foreach (self::$_worker_pids as $_worker_pid) {
+                    // 只要有一个worker进程还存在进程ID,就不算退出
+                    if ($_worker_pid != 0) {
+                        $all_worker_stop = false;
+                    }
+                }
+                if ($all_worker_stop) {
+                    if ($this->on_stop) {
+                        call_user_func($this->on_stop, $this);
+                    }
+                    exit(0);
+                }
+            } else {
+                // worker进程接受到master进行信号退出的,会到这里来
+                if ($this->on_stop) {
+                    call_user_func($this->on_stop, $this);
+                }
+                exit(0);
+            }
+        }
+    }
+
+    /**
+     * 执行关闭流程(所有进程)
+     * 事件触发,非正常程序执行完毕
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 21:46:20
+     */
+    public function stop_all()
+    {
+        // 设置master、worker进程的运行状态为关闭状态
+        self::$_status = "shutdown";
+        // master进程
+        if (self::$_master_pid === posix_getpid()) {
+            // 循环给worker进程发送关闭信号
+            foreach (self::$_worker_pids as $worker_pid) {
+                posix_kill($worker_pid, SIGINT);
+            }
+        } else { // worker进程
+            // 接收到master进程发送的关闭信号之后退出,这里应该考虑业务的完整性,不能强行exit
+            $this->stop();
+            exit(0);
+        }
+    }
+
+    /**
+     * 停止当前worker实例
+     * 正常运行结束和接收信号退出,都会调用这个方法
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 21:51:45
+     */
+    public function stop()
+    {
+        if ($this->on_worker_stop) {
+            call_user_func($this->on_worker_stop, $this);
+        }
+        // 设置worker进程的运行状态为关闭
+        self::$_status = "shutdown";
+    }
+
+    /**
+     * 检查错误,PHP exit之前会执行
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-8 21:53:57
+     */
+    public function check_errors()
+    {
+        // 如果当前worker进程不是正常退出
+        if (self::$_status != "shutdown") {
+            $error_msg = "WORKER EXIT UNEXPECTED ";
+            $errors = error_get_last();
+            if ($errors && ($errors['type'] === E_ERROR || $errors['type'] === E_PARSE || $errors['type'] === E_CORE_ERROR || $errors['typr'] === E_COMPILE_ERROR || $errors['type'] === E_RECOVERABLE_ERROR)) {
+                $error_msg .= $this->get_error_type($error['type']) . " {$errors['message']} in {$errors['file']} on line {$errors['line']}";
+            }
+            Log::add($error_msg, "Error");
+        }
+    }
+
+    /**
      * 获取错误类型对应的意义
      *
      * @param integer $type
