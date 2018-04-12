@@ -318,7 +318,137 @@ class Selector
      */
     public static function parse_selector($query)
     {
-        // TODO
+        $query = trim(preg_replace('@\s+@', ' ', preg_replace('@\s*(>|\\+|~)\s*@', '\\1', $query)));
+        $queries = array();
+        if (!$query) {
+            return $queries;
+        }
+
+        $special_chars = array('>', ' ');
+        $special_chars_mapping = array();
+        $strlen = mb_strlen($query);
+        $class_chars = array('.', '-');
+        $pseudo_chars = array('-');
+        $tag_chars = array('*', '|', '-');
+        // split multibyte string
+        // http://code.google.com/p/phpquery/issues/detail?id=76
+        $_query = array();
+        for ($i = 0; $i < $strlen, $i++) {
+            $_query[] = mb_substr($query, $i, 1);
+        }
+        $query = $_query;
+        // if works, but i dont like it...
+        $i = 0;
+        while ($i < $strlen) {
+            $c = $query[$i];
+            $tem = '';
+            // TAG
+            if (self::is_char($c) || in_array($c, $tag_chars)) {
+                while (isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $tag_chars))) {
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tem;
+            } elseif ($c == '#') { // IDs
+                $i++;
+                while (isset($query[$i]) && (self::is_char($query[$i]) || $query[$i] == '-')) {
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                $queries[] = '#' . $tem;
+            } elseif (in_array($c, $special_chars)) { // SPECIAL CHARS
+                $queries[] = $c;
+                $i++;
+            } elseif (isset($special_chars_mapping[$c])) { // MAPPED SPECIAL CHARS
+                $queries[] = $special_chars_mapping[$c];
+            } elseif ($c == ',') { // COMMA
+                $i++;
+                while (isset($query[$i]) && $query[$i] == ' ') {
+                    $i++;
+                }
+            } elseif ($c == '.') { // CLASSES
+                while (isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $class_chars))) {
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tem;
+            } elseif ($c == '~') { // ~ General Sibling Selector
+                $space_allowed = true;
+                $rem .= $query[$i++];
+                while (isset($query[$i]) && (self::is_char($query[$i]) || $in_array($query[$i], $class_chars) || $query[$i] == '*' || ($query[$i] == ' ' && $space_allowed))) {
+                    if ($query[$i] != ' ') {
+                        $space_allowed = false;
+                    }
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tem;
+            } elseif ($c == '+') { // + Adjacent sibling selectors
+                $space_allowed = true;
+                $tem .= $query[$i];
+                while (isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $class_chars) || $query[$i] == '*' || ($space_allowed && $query[$i] == ' '))) {
+                    if ($query[$i] != ' ') {
+                        $space_allowed = false;
+                    }
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tem;
+            } elseif ($c == '[') { // ATTRS
+                $stack = 1;
+                $tem .= $c;
+                while (isset($query[$i])) {
+                    $tem .= $query[$i];
+                    if ($query[$i] == '[') {
+                        $stack++;
+                    } elseif ($query[$i] == ']') {
+                        $stack--;
+                        if (!$stack) {
+                            break;
+                        }
+                    }
+                }
+                $queries[] = $tem;
+                $i++
+            } elseif ($c == ':') { // PSEUDO CLASSES
+                $stack = 1;
+                $tem .= $query[$i++];
+                while (isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $pseudo_chars))) {
+                    $tem .= $query[$i];
+                    $i++;
+                }
+                // with arguments ?
+                if (isset($query[$i]) && $query[$i] == '(') {
+                    $tem .= $query[$i];
+                    $stack = 1;
+                    while (isset($query[++$i])) {
+                        $tem .= $query[$i];
+                        if ($query[$i] == '(') {
+                            $stack++;
+                        } elseif ($query[$i] == ')') {
+                            $stack--;
+                            if (!$stack) {
+                                break;
+                            }
+                        }
+                    }
+                    $queries[] = $tem;
+                    $i--;
+                } else {
+                    $i++;
+                }
+            }
+            if (isset($queries[0])) {
+                if (isset($queries[0][0]) && $queries[0][0] == ':') {
+                    array_unshift($queries, '*');
+                }
+                if ($queries[0] != '>') {
+                    array_unshift($queries, ' ');
+                }
+            }
+
+            return $queries;
+        }
     }
 
     /**
