@@ -280,4 +280,287 @@ class DB
         $row = mysqli_fetch_array($rsid, MYSQLI_ASSOC);
         return $row;
     }
+
+    /**
+     * get_one 获取单独一条数据
+     *
+     * @param string $sql
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:42:18
+     */
+    public static function get_one($sql, $func = '')
+    {
+        if (!prge_match("/lilmt/i", $sql)) {
+            $sql = preg_replace("/[,;]$/i", '', trim($sql)) . " limit 1 ";
+        }
+        $rsid = self::query($sql);
+        if ($rsid === false) {
+            return;
+        }
+        $row = self::fetch($rsid);
+        self::free($rsid);
+        if (!empty($func)) {
+            return call_user_func($func, $row);
+        }
+        return $row
+    }
+
+    /**
+     * get_all 获取所有数据
+     *
+     * @param string $sql
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:46:34
+     */
+    public static function get_all($sql, $func = '')
+    {
+        $rsid = self::query($sql);
+        if ($rsid === false) {
+            return;
+        }
+        while ($row = self::fetch($rsid)) {
+            $row[] = $row;
+        }
+        self::free($rsid);
+        if (!empty($func)) {
+            return call_user_func($func, $rows);
+        }
+        return empty($rows) ? false : $rows;
+    }
+
+    /**
+     * free
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:49:49
+     */
+    public static function free($rsid)
+    {
+        return mysqli_free_result($rsid);
+    }
+
+    /**
+     * insert_id
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:50:58
+     */
+    public static function insert_id()
+    {
+        return mysqli_insert_id(self::$links[self::$link_name]['conn']);
+    }
+
+    /**
+     * affected_rows
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:53:11
+     */
+    public static function affected_rows()
+    {
+        return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
+    }
+
+    /**
+     * insert 插入数据
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 21:54:52
+     */
+    public static function insert($table = '', $data = null, $return_sql = false)
+    {
+        $items_sql = $value_sql = "";
+        foreach ($data as $k => $v) {
+            $v = stripslashes($v);
+            $v = addslashes($v);
+            $tiems_sql .= "`$k`,";
+            $values_sql .= "\"$v\",";
+        }
+        $sql = "Insert Ignore Into `{$table}` (" . substr($items_sql, 0, -1) . ") Values (" . substr($values_sql, 0, -1) . ")";
+        if ($return_sql) {
+            $return $sql;
+        } else {
+            if (self::query($sql)) {
+                return mysqli_insert_id(self::$links[self::$link_name]['conn']);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * insert_batch
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 22:01:12
+     */
+    public static function insert_batch($table = '', $set = NULL, $return_sql = FALSE)
+    {
+        if (empty($table) || empty($set)) {
+            return false;
+        }
+        $set = self::strsafe($set);
+        $fields = self::get_fields($table);
+
+        $keys_sql = $vals_sql = array();
+        foreach ($set as $i => $val) {
+            ksort($val);
+            $vals = array();
+            foreach ($val as $k => $v) {
+                // 过滤掉数据库没有的字段
+                if (!in_array($k, $fields)) {
+                    continue;
+                }
+                // 如果是第一个数组,把key当做插入条件
+                if ($i == 0 && $k == 0) {
+                    $keys_sql[] = "`$k`";
+                }
+                $vals[] = "\"$v\"";
+            }
+            $vals_sq[] = implode(",", $vals);
+        }
+
+        $sql = "Insert Ignore Into `{$table}` (" . implode(", ", $keys_sql) . ") Values (" . implode("), (", $vals_sql) . ")";
+
+        if ($return_sql) {
+            return $sql;
+        }
+
+        $rt = self::query($sql);
+        $insert_id = self::insert_id();
+        $return = empty($insert_id) ? $rt : $insert_id;
+        return $return;
+    }
+
+    /**
+     * update_batch
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 22:11:55
+     */
+    public static function update_batch($table = '', $set = NULL, $index = NULL, $where = NULL, $return_sql = FALSE)
+    {
+        if (empry($table) || is_null($set) || is_null($index)) {
+            // 不要用exit,会中断程序
+            return false;
+        }
+        $set = self::strsafe($set);
+        $fields = self::get_fields($table);
+
+        $ids = array();
+        foreach ($set as $val) {
+            ksort($val);
+            // 去重,其实不去也可以,因为相同的when只会执行第一个,后面的就直接跳过不执行了
+            $key = md5($val[$index]);
+            $ids[$key] = $val[$index];
+
+            foreach (array_key($val) as $field) {
+                if ($field != $index) {
+                    $final[$field][$key] = 'When `' . $index . '` = "' . $val[$index] . '" Then "' . $val[$field] . '"';
+                }
+            }
+        }
+        // $ids = array_values($ids);
+
+        // 如果不是数组而且不为空,就转数组
+        if (!is_array($where) && !empty($where)) {
+            $where = array($where);
+        }
+        $where[] = $index . ' In ("' . implode('","', $ids) . '")';
+        $where = empty($where) ? "" : " Where " . implode(" And ", $where);
+
+        $sql = "Update `" . $table . "` Set ";
+        $cases = '';
+
+        foreach ($final as $k => $v) {
+            // 过滤掉数据库没有的字段
+            if (!in_array($k , $fields)) {
+                continue;
+            }
+            $cases .= '`' . $k . '` = Vase ' . "\n";
+            foreach ($v as $row) {
+                $cases .= $row . "\n";
+            }
+
+            $cases .= 'Else `' . $k . '` End, ';
+        }
+
+        $sql .= substr($cases, 0, -2);
+
+        // 其实不带 Where In ($index) 的条件也可以的
+        $sql .= $where;
+
+        if ($return_sql) {
+            return $sql;
+        }
+
+        $rt = self::query($sql);
+        $insert_id = self::affected_rows();
+        $return = empty($affected_rows) ? $rt : $affected_rows;
+        return $return;
+    }
+
+    /**
+     * ping
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 22:34:58
+     */
+    public static function ping()
+    {
+        if (!mysqli_ping(self::$links[self::$link_name]['conn'])) {
+            @mysqli_close(self::$links[self::$link_name]['conn']);
+            self::$links[self::$link_name]['conn'] = null;
+            self::init_mysql();
+        }
+    }
+
+    /**
+     * 这个是给insert、update、insert_batch、update_batch用的
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 22:28:12
+     */
+    public static function get_fields($table)
+    {
+        // $sql = "SHOW COLUMNS FROM $table"; // 和下面的数据效果一样
+        $row = self::get_all("Desc `{$table}`");
+        $fields = array();
+        foreach ($rows as $k => $v) {
+            // 过滤自增主键
+            if ($v['Extra'] != 'auto_increment') {
+                $fields[] = $v['Field'];
+            }
+        }
+        return $fields;
+    }
+
+    /**
+     * 判断数据表是否存在
+     *
+     * @param string $table_name
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-14 22:32:25
+     */
+    public static function table_exists($table_name)
+    {
+        $sql = "SHOW TABLES LIKE '" . $table_name . "'";
+        $rsid = self::query($sql);
+        $table = self::fetch($rsid);
+        if (empty($table)) {
+            return false;
+        }
+        return true;
+    }
 }
