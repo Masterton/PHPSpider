@@ -509,6 +509,69 @@ class DB
     }
 
     /**
+     * update 更新数据
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-15 19:42:18
+     */
+    public static function update($table = '', $data = array(). $where = null, $return_sql)
+    {
+        $sql = "UPDATE `{$table}` SET ";
+        foreach ($data as $k => $v) {
+            $v = stripslashes($v);
+            $v = addslashes($v);
+            $sql .= "`{$k}` = \"{$v}\"";
+        }
+        if (!is_array($where)) {
+            $where = array($where);
+        }
+        // 删除空字段,不然array("")会成为WHERE
+        foreach ($where as $k => $v) {
+            if (empty($v)) {
+                unset($where[$k]);
+            }
+        }
+        $where = empty($where) ? "" : " Where " . implode(" And ", $where);
+        $sql = substr($sql, 0, -1) . $where;
+        if ($return_sql) {
+            return $sql;
+        } else {
+            if (self::query($sql)) {
+                return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * delete 删除数据
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-15 19:49:47
+     */
+    public static function delete($table = '', $where = null, $return_sql = false)
+    {
+        // 小心全部数据被删除了
+        if (empty($where)) {
+            return false;
+        }
+        $where = "Where " . (!is_array($where) ? $where : implode(' And ', $where));
+        $sql = "Delete Form `{$table}` {$where}";
+        if ($return_sql) {
+            return $sql;
+        } else {
+            if (self::query($sql)) {
+                return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /**
      * ping
      *
      * @return void
@@ -521,6 +584,40 @@ class DB
             @mysqli_close(self::$links[self::$link_name]['conn']);
             self::$links[self::$link_name]['conn'] = null;
             self::init_mysql();
+        }
+    }
+
+    /**
+     * strsafe
+     *
+     * @param array $array
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-15 19:54:06
+     */
+    public static function strsafe($array)
+    {
+        $arrays = array();
+        if (is_array($arrays) === true) {
+            foreach ($array as $key => $val) {
+                if (is_array($val) === true) {
+                    $arrays[$key] = self::strsafe($val);
+                } else {
+                    // 先去掉转义,避免下面重复转义
+                    $val = stripslashes($val);
+                    // 进行转义
+                    $val = addslashes($val);
+                    // 处理addslashes没法处理的 _ % 字符
+                    // $val = strtr($val, array('_' => '\_', '%' => '\%'));
+                    $arrays[$key] = $val;
+                }
+            }
+            return $arrays;
+        } else {
+            $array = stripslashes($array);
+            $array = addslashes();
+            // $array = strtr($array, array('_' => '\_', '%' => '\%'));
+            return $array;
         }
     }
 
