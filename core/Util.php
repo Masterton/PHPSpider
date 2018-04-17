@@ -418,24 +418,39 @@ class Util
         return false;
     }
 
-
     /**
-     * 判断服务器是不是windows服务器
+     * 写文件,如果文件目录不存在,则递归生成
      *
-     * @return boolean
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:30:11
      */
-    public static function is_win()
+    public static function put_file($file, $content, $flag = 0)
     {
-        return strtoupper(substr(PHP_OS, 0, 3)) === "WIN";
+        $pathinfo = pathinfo();
+        if (!empty($pathinfo['dirname'])) {
+            if (file_exists($pathinfo['dirname']) === false) {
+                if (@mkdir($pathinfo['dirname'], 0777, true) === false) {
+                    return false;
+                }
+            }
+        }
+        if ($flag === FILE_APPEND) {
+            // 多个php-fpm写一个文件的时候容易丢失,要加锁
+            // return @file_put_contents($file, $content, FILE_APPEDN|LOCK_EX);
+            return @file_put_contents($file, $content, FILE_APPEND);
+        } else {
+            return @file_put_contents($file, $content, LOCK_EX);
+        }
     }
 
     /**
      * 检查路径是否存在,不存在则递归生成路径
      *
      * @param mixed $path 路径
-     * @static
-     * @access public
      * @return bool or string
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:35:09
      */
     public static function path_exists($path)
     {
@@ -448,5 +463,201 @@ class Util
             }
         }
         return $path;
+    }
+
+    /**
+     * 递归删除目录
+     *
+     * @param mixed $dir
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:36:15
+     */
+    public static function deldir($dir)
+    {
+        // 先删除目录下的文件
+        $dh = opendir($dir);
+        while ($file = readdir($dh)) {
+            if ($file != "." && $file != "..") {
+                $fullpath = $dir . "/" . $file;
+                if (!is_dir($fullpath)) {
+                    unlink($fullpath);
+                } else {
+                    self::deldir($fullpath);
+                }
+            }
+        }
+
+        closedir($dh);
+        // 删除当前文件夹
+        if (rmdir($dir)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 递归修改目录权限
+     *
+     * @param mixed $path 目录
+     * @param mixed $filemode 权限
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:40:33
+     */
+    public static function chmodr($path, $filemode)
+    {
+        if (!is_dir($path)) {
+            return @chmod($path, $filemode);
+        }
+
+        $dh = opendir($path);
+        while (($file = readdir($dh)) !== false) {
+            if ($file != '.' && $file != '..') {
+                $fullpath = $path . '/' . $file;
+                if (is_link($fullpath)) {
+                    return false;
+                } elseif (!is_dir($fullpath) && !@chmod($fullpath, $filemode)) {
+                    return false;
+                } elseif (!self::chmodr($fullpath, $filemode)) {
+                    return false;
+                }
+            }
+        }
+
+        closedir($dh);
+        if (@chmod($path, $filemode)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 数组格式化为CSV
+     *
+     * @param mixed $data
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:45:48
+     */
+    public static function format_csv($data)
+    {
+        foreach ($data as $k => $v) {
+            $v = str_replace(",", "", $v);
+            $v = str_replace("，", "", $v);
+            $data[$k] = $v;
+        }
+        return implode(",", $data);
+    }
+
+    /**
+     * 判断是否为utf-8字符串
+     *
+     * @param string $str
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:48:19
+     */
+    public static function is_utf8($str)
+    {
+        if ($str === mb_convert_encoding(mb_convert_encoding($str, "UTF-32", "UTF-8"), "UTF-8", "UTF-32")) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 获取文件编码
+     *
+     * @param string $string
+     * @return string
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:50:50
+     */
+    public static function get_encoding($string)
+    {
+        $encoding = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
+        return strtolower($encoding);
+    }
+
+    /**
+     * 转换数组值得编码格式
+     *
+     * @param array $arr
+     * @param string $toEncoding
+     * @param string $formEncoding
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:53:39
+     */
+    public static function array_iconv($arr, $form_encoding, $to_encoding)
+    {
+        eval('$arr = ' . iconv($form_encoding, $to_encoding . '//IGNORE', var_export($arr, TRUE)) . ';');
+        return $arr;
+    }
+
+    /**
+     * 从普通时间返回Linux时间戳(strtotime中文处理版)
+     *
+     * @param string $dtime
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-17 20:58:07
+     */
+    public static function cn_strtotime($dtime)
+    {
+        if (!preg_match("/[^0-9]/", $dtime)) {
+            return $dtime;
+        }
+        $dtime = trim($dtime);
+        $dt = array(1970, 1, 1, 0, 0, 0);
+        $dtime = preg_replace("/[\r\n\t]|日|秒/", " ", $dtime);
+        $dtime = str_replace("年", "-", $dtime);
+        $dtime = str_replace("月", "-", $dtime);
+        $dtime = str_replace("时", "-", $dtime);
+        $dtime = str_replace("分", "-", $dtime);
+        $dtime = trim(preg_replace("/[ ]{1,}/", " ", $dtime));
+        $ds = explode(" ", $dtime);
+        $ymd = explode("-", $ds[0]);
+        if (!isset($ymd[1])) {
+            $ymd = explode(".", $ds[0]);
+        }
+        if (isset($ymd[0])) {
+            $dt[0] = $ymd[0];
+        }
+        if (isset($ymd[1])) $dt[1] = $ymd[1];
+        if (isset($ymd[2])) $dt[2] = $ymd[2];
+        if (strlen($dt[0]) == 2) $dt[0] = '20' . $dt[0];
+        if (isset($ds[1])) {
+            $hms = explode(":", $ds[1]);
+            if (isset($hms[0])) $dt[3] = $hms[0];
+            if (isset($hms[1])) $dt[4] = $hms[1];
+            if (isset($hms[2])) $dt[5] = $hms[2];
+        }
+        foreach ($dt as $k => $v) {
+            $v = preg_replace("/^0{1,}/", '', trim($v));
+            if ($v == '') {
+                $dt[$k] = 0;
+            }
+        }
+        $mt = mktime($dt[3], $dt[4], $dt[5], $dt[1], $dt[2], $dt[0]);
+        if (!empty($mt)) {
+            return $mt;
+        } else {
+            return strtotime($dtime);
+        }
+    }
+
+    /**
+     * 判断服务器是不是windows服务器
+     *
+     * @return boolean
+     */
+    public static function is_win()
+    {
+        return strtoupper(substr(PHP_OS, 0, 3)) === "WIN";
     }
 }
