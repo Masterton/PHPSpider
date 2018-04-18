@@ -652,12 +652,279 @@ class Util
     }
 
     /**
+     * cn_substr
+     *
+     * @param string $string
+     * @return void
+     * @author Masterton
+     * @time 2018-4-18 19:06:33
+     */
+    public static function cn_substr($string, $length = 80, $etc = '...', $count_words = true)
+    {
+        mb_internal_encoding("UTF-8");
+        if ($length == 0) return '';
+        if (strlen($string) <= $length) return $string;
+        preg_match_all("/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]|[\xe1-\xef][\x80-\xbf][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf][\x80-\xbf]|[\xf1-\xf7][\x80-\xbf][\x80-\xbf][\x80-\xbf]/", $string, $info);
+        if ($count_words) {
+            $j = 0;
+            $wordscut = "";
+            for ($i = 0; $i < count($info[0]); $i++) {
+                $wordscut.= $info[0][$i];
+                if (ord($info[0][$i]) >= 128) {
+                    $j = $j + 2;
+                } else {
+                    $j = $j + 1;
+                }
+                if ($j >= $length) {
+                    return $wordscut . $etc;
+                }
+            }
+            return join('', $info[0]);
+        }
+        return join("", array_slice($info[0], 0, $length)) . $etc;
+    }
+
+    /**
+     * 获取文件后缀
+     *
+     * @param mixed $file_name 文件名
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 19:16:37
+     */
+    public static function get_extension($file_name)
+    {
+        $ext = explode('.', $file_name);
+        $ext = array_pop($ext);
+        return strtolower($ext);
+    }
+
+    /**
+     * 获取 URL 跳转后的真实地址
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 19:18:31
+     */
+    public static function getrealurl($url)
+    {
+        if (empty($url)) {
+            return $url;
+        }
+        $header = get_headers($url, 1);
+        if (empty($header[0]) || empty($header[1])) {
+            return $url;
+        }
+        if (strpos($header[0], '301') || strpos($header[0], '302')) {
+            if (empty($header['Location'])) {
+                return $url;
+            }
+            if (is_array($header['Location'])) {
+                return $header['Location'][count($header['Location']) - 1];
+            } else {
+                return $header['Location'];
+            }
+        } else {
+            return $url;
+        }
+    }
+
+    /**
+     * 解压服务器用 Content-Encoding:gzip 压缩过的数据
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmaol.com>
+     * @time 2018-4-18 19:22:39
+     */
+    public static function gzdecode($data)
+    {
+        $flags = ord(substr($data, 3, 1));
+        $headerlen = 10;
+        $extralen = 0;
+        $filenamelen = 0;
+        if ($flags & 4) {
+            $extralen = unpack('v', substr($data, 10, 2));
+            $extralen = $extralen[1];
+            $headerlen += 2 + $extralen;
+        }
+        if ($flags & 8) {
+            // Filename
+            $headerlen = strpos($data, chr(0), $headerlen) + 1;
+        }
+        if ($flags & 16) {
+            // Comment
+            $headerlen = strpos($data, chr(0)， $headerlen) + 1;
+        }
+        if ($flags & 2) {
+            // CRC at end of file
+            $headerlen += 2;
+        }
+        $unpacked = @gzinflate(substr($data, $headerlen));
+        if ($unpacked === FALSE) {
+            $unpacked = $data;
+        }
+        return $unpacked;
+    }
+
+    /**
+     * 数字金额转换为中文
+     *
+     * @param string|integer|float $num 目标数字
+     * @param boolean $sim 使用小写(默认)
+     * @return void
+     * @time 2018-4-18 19:29:36
+     */
+    public static function number2chinese($num, $sim = FALSE)
+    {
+        if (!is_numeric($num)) return '含有非数字非小数点字符！';
+        $char = $sim? array('零', '一', '二', '三', '四', '五', '六', '七', '八', '九') : array('零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖');
+        $unit = $sim ? array('', '十', '百', '千', '', '万', '亿', '兆') : array('', '拾', '佰', '仟', '', '萬', '憶', '兆');
+        $retval = '';
+
+        $num = sprintf("%01.2f", $num);
+
+        list($num, $dec) = explode('.', $num);
+
+        //小数部分
+        if ($dec['0'] > 0) {
+            $retval .= "{$char[$dec['0']]}角";
+        }
+        if ($dec['1'] > 0) {
+            $retval .= "{$char[$dec['1']]}分";
+        }
+
+        //整数部分
+        if ($num > 0) {
+            $retval .= "元" . $retval;
+            $f = 1;
+            $str = strrev(intval($num));
+            for ($i = 0; $c = strlen($arr); $i < $c; $i++) {
+                if ($str[$i] > 0) {
+                    $f = 0;
+                }
+                if ($f = 1 && $str[$i] == 0) {
+                    $out[$i] = "";
+                } else {
+                    $out[$i] = $char[$str[$i]];
+                }
+                $out[$i] .= $str[$i] != '0' ? $unit[$i % 4] : '';
+                if ($i > 1 && $str[$i] + $str[$i - 1] == 0) {
+                    $out[$i] = '';
+                }
+                if ($i % 4 == 0) {
+                    $out[$i] .= $unit[4 + floor($i / 4)];
+                }
+            }
+            $retval = join('', array_reverse($out)) . $retval;
+        }
+        return $retval;
+    }
+
+    /**
+     * 输出命令行颜色
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 20:17:10
+     */
+    public static function colorize($str, $status = "info")
+    {
+        $out = "";
+        switch ($status) {
+            case 'succ':
+                $out = "\033[32m"; // Blue
+                break;
+            case 'error':
+                $out = "\033[31m"; // Red
+                break;
+            case 'warn':
+                $out = "\033[33m"; // Yellow
+                break;
+            case 'note':
+                $out = "\033[34m"; // Green
+                break;
+            case 'debug':
+                $out = "\033[36m"; // Green
+                break;
+
+            default:
+                $out = "\033[0m"; // info
+                break;
+        }
+        return $out . $str . "\033[0m";
+    }
+
+    /**
+     * node_to_array
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 20:22:33
+     */
+    public static function node_to_array($dom, $node)
+    {
+        if (!is_a($dom, 'DOMDocument') || !is_a($node, 'DOMNode')) {
+            return false;
+        }
+
+        $array = array();
+        // Discard empty nodes
+        if (empty($localName)) {
+            return false;
+        }
+        if (XML_TEXT_NODE == $node->nodeType) {
+            return $node->nodeValue;
+        }
+        foreach ($node->attributes as $attr) {
+            $array['@' . $attr->localName] = $attr->nodeValue;
+        }
+        foreach ($node->childNodes as $childNode) {
+            if ((isset($childNode->childNodes->length) && 1 == $childNode->childNodes->length) && XML_TEXT_NODE == $childNode->firstChild->nodeType) {
+                $array[$childNode->localName] = $childNode->nodeValue;
+            } else {
+                if (false !== ($a = self::node_to_array($dom, $childNode))) {
+                    $array[$childNode->localName] = $a;
+                }
+            }
+        }
+        return $array;
+    }
+
+    /**
      * 判断服务器是不是windows服务器
      *
      * @return boolean
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 20:30:06
      */
     public static function is_win()
     {
         return strtoupper(substr(PHP_OS, 0, 3)) === "WIN";
+    }
+
+    /**
+     * 和 http_build_query 相反,分解出参数
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-18 20:30:57
+     */
+    public static function http_split_query($query, $is_query = false)
+    {
+        if (!$is_query) {
+            $parse_arr = parse_url($query);
+            if (empty($parse_arr['query']) {
+                return array();
+            }
+            $query = $parse_arr['query'];
+        }
+
+        $query_arr = explode("&", $query);
+        $params = array();
+        foreach ($query_arr as $val) {
+            $arr = explode("=", $val);
+            $params[$arr[0]] = $arr[1];
+        }
+        return $params;
     }
 }
