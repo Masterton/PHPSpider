@@ -476,4 +476,261 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * substr 返回名称为key的string的value的子串
+     *
+     * @param mixed $key
+     * @param mixed $start
+     * @param mixed $end
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 19:50:34
+     */
+    public static function substr($key, $start, $end)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->substr($key, $start, $end);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::substr($key, $start, $end);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * select 按索引查询
+     *
+     * @param mixed @index
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 19:54:55
+     */
+    public static function select($index)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->select($index);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessgae() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::select($index);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * dbsize 返回当前数据库中key的数目
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 19:59:17
+     */
+    public static function dbsize()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->dbsize();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::dbsize();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * flushdb 删除当前选择数据库中的所有key
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 20:03:16
+     */
+    public static function flushdb()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->flushdb();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::flushdb();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * flushall 删除所有数据库中的所有key
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 20:07:29
+     */
+    public static function flushall()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->flushall();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::flushall();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * save 将数据保存到磁盘
+     *
+     * @param mixed $is_bgsave 将数据异步保存到磁盘
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 20:11:42
+     */
+    public static function save($is_bgsave = false)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if (!$is_bgsave) {
+                    return self::$links[self::$link_name]->save();
+                } else {
+                    return self::$links[self::$link_name]->bgsave();
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::save($is_bgsave);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * info 提供服务器的信息和统计
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 20:16:24
+     */
+    public static function info()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->info();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::info();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * slowlog 慢查询日志
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-23 20:20:21
+     */
+    public static function slowlog($command = 'get', $len = 0)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if (!empty($len)) {
+                    return self::$links[self::$link_name]->slowlog($command, $len);
+                } else {
+                    return self::$links[self::$link_name]->slowlog($command);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::slowlog($command, $len);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lastsave 返回上次成功将数据保存到磁盘的Unix时间戳
+     *
+     * @return void
+     * @author Masterton <zhegncloud@foxmail.com>
+     * @time 2018-4-23 20:25:48
+     */
+    public static function lastsave()
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lastsave();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lastsave();
+            }
+        }
+        return NULL;
+    }
 }
