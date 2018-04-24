@@ -733,4 +733,236 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * lpush 将数据从左边压入
+     *
+     * @param mixed @key
+     * @param mixed @value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:02:45
+     */
+    public static function lpush($key, $value)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lpush($key, $value);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lpush($key, $value);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * rpush 将数据从右边压入
+     *
+     * @param mixed $key
+     * @param mixed $value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:06:50
+     */
+    public static function rpush($key, $value)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->rpush($key, $value);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::rpush($key, $value);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lpop 从左边弹出数据,并删除数据
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:11:13
+     */
+    public static function lpop($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lpop($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lpop($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * rpop 从右边弹出数据,并删除数据
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:15:14
+     */
+    public static function rpop($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->rpop($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getmessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                sleep(100000);
+                return self::rpop($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lsize 队列长度,同llen
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:19:56
+     */
+    public static function lsize($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lSize($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lsize($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lget 获取数据
+     *
+     * @param mixed $key
+     * @param int $index
+     * @return void
+     * @author Masterton <zhegncloud@foxmail.com>
+     * @time 2018-4-24 20:24:19
+     */
+    public static function lget($key, $index = 0)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lget($key, $index);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal erro: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lget($key, $index);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * lrange 获取范围数据
+     *
+     * @param mixed $key
+     * @param mixed $start
+     * @param mixed $end
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:28:40
+     */
+    public static function lrange($key, $start, $end)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->lRange($key, $start, $end);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lrange($key, $start, $end);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * rlist 从右边弹出 $length 长度数据,并删除数据
+     *
+     * @param mixed $key
+     * @param mixed $length
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-24 20:34:12
+     */
+    public static function rlist($key, $length)
+    {
+        $queue_length = self::lsize($key);
+        // 如果队列中有数据
+        if ($queue_length > 0) {
+            $list = array();
+            $count = ($queue_length >= $length) ? $length : $queue_length;
+            for ($i = 0; $i < $count; $i++) {
+                $data = self::rpop($key);
+                if ($data === false) {
+                    continue;
+                }
+
+                $list[] = $data;
+            }
+            return $list;
+        } else {
+            // 没有数据返回NULL
+            return NULL;
+        }
+    }
 }
