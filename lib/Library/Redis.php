@@ -965,4 +965,169 @@ class Redis
             return NULL;
         }
     }
+
+    /**
+     * keys
+     * 查找符合给定模式的key
+     * KEYS * 命中数据库中的所有key
+     * KEYS h?llo 命中hello、hallo and hxllo等
+     * KEYS h*llo 命中hllo and heeeeello等
+     * KEYS h[ae]llo 命中hello and hallo,但不命中hillo
+     * 特殊符号用"\"隔开
+     * 因为这个类加了 OPT_PREFIX 前缀,所以并不能真的列出redis所有的key
+     * 需要的话,要把前缀去掉
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 19:35:21
+     */
+    public static function keys($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->keys($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::keys();
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * ttl 返回某个KEY的过期时间
+     * 正数: 剩余多少秒
+     * -1: 永不超时
+     * -2: key不存在
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 19:44:19
+     */
+    public static function ttl($key)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name];
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::ttl($key);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * expire 为某个key设置过期时间,同setTimeout
+     *
+     * @param mixed @key
+     * @param mixed $expire
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 19:48:09
+     */
+    public static function expire($key, $expire)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->expire($key, $expire);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisExcepiton' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::expire($key, $expire);
+            }
+        }
+        return NULL;
+    }
+
+    /**
+     * exists key值是否存在
+     *
+     * @param mixed $key
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 19:52:57
+     */
+    public static function exists($key)
+    {
+        self::init()
+        try {
+            if (self::$links[self::$link_name]) {
+                return self::$links[self::$link_name]->exists($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error: Uncaught exception 'RedisException' with message '" . $e->getMessage() . "'\n";
+            Log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::exists($key);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * ping 检查当前redis是否存在且是否可以连接上
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 19:57:44
+     */
+    /*protected static function ping()
+    {
+        if (empty(self::$links[self::$link_name])) {
+            return false;
+        }
+        return self::$links[self::$link_name]->ping() == '+PONG';
+    }*/
+
+    /**
+     * encode
+     *
+     * @param mixed $value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 20:00:15
+     */
+    public static function encode($value)
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * decode
+     *
+     * @param mixed @value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-25 20:01:47
+     */
+    public static function decode($value)
+    {
+        return json_decode($value, true);
+    }
 }
