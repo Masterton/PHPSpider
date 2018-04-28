@@ -26,4 +26,150 @@ class RollingCurl
      * 因为多进程很少几率会放生并发
      */
     public $window_size = 5;
+
+    /**
+     * @var float
+     *
+     * @Timeout is the timeout used for curl_multi_select.
+     */
+    private $timeout = 10;
+
+    /**
+     * @var string|array
+     *
+     * 应用在每个请求的回调函数
+     */
+    public $callback;
+
+    /**
+     * @var array
+     *
+     * 设置默认的请求参数
+     */
+    protected $options = array(
+        CURLOPT_SSL_VERIFYPEER => 0,
+        CURLOPT_RETURNTRANSFER => 1,
+        // 注意: TIMEOUT = CONNECTTIMEOUT + 数据获取时间,所以 TIMEOUT 一定要大于 CONNECTTIMEOUT,否则 CONNECTTIMEOUT 设置了就没有意义
+        // "Connection timed out after 30001 milliseconds"
+        CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
+        CURLOPT_RETURNTRANSFER => 1;
+        CURLOPT_HEADER => 0,
+        // 在多线程处理场景下使用超时选项时,会忽略signals对应的处理函数,但是无耐的是还有下概率的crash情况发生
+        CURLOPT_NOSIGNAL => 1,
+        CURLOPT_USERAGENT => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36",
+    );
+
+    /**
+     * @var array
+     *
+     */
+    private $headers = array();
+
+    /**
+     * @var Request[]
+     *
+     */
+    private $requests = array();
+
+    /**
+     * @var RequestMap[]
+     *
+     * Maps handles to request indexes
+     */
+    private $requestsMap = array();
+
+    public function __construct()
+    {
+        // TODO
+    }
+
+    /**
+     * set timeout
+     *
+     * @param int $timeout
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:13:09
+     */
+    public function set_timeout($timeout)
+    {
+        $this->options[CURLOPT_TIMEOUT] = $timeout;
+    }
+
+    /**
+     * set proxy
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:14:24
+     */
+    public function set_proxy($proxy)
+    {
+        $this->options[CURLOPT_PROXY] = $proxy;
+    }
+
+    /**
+     * set referer
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:15:28
+     */
+    public function set_referer($referer)
+    {
+        $this->options[CURLOPT_REFERER] = $referer;
+    }
+
+    /**
+     * set user_agent
+     *
+     * @param string $useragent
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:17:00
+     */
+    public function set_useragent($useragent)
+    {
+        $this->options[CURLOPT_USERAGENT] = $useragent;
+    }
+
+    /**
+     * set COOKIE
+     *
+     * @param string $cookie
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:18:38
+     */
+    public function set_cookie($cookie)
+    {
+        $this->options[CURLOPT_COOKIE] = $cookie;
+    }
+
+    /**
+     * set COOKIE JAR
+     *
+     * @param string $cookie_jar
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:20:24
+     */
+    public function set_cookiejar($cookiejar)
+    {
+        $this->options[CURLOPT_COOKIEJAR] = $cookiejar;
+    }
+
+    /**
+     * set COOKIE FILE
+     *
+     * @param string $cookie_file
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-28 19:22:23
+     */
+    public function set_cookiefile($cookiefile)
+    {
+        $this->options[CURLOPT_COOKIEFILE] = $cookiefile;
+    }
 }
