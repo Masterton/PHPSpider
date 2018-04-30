@@ -172,4 +172,97 @@ class RollingCurl
     {
         $this->options[CURLOPT_COOKIEFILE] = $cookiefile;
     }
+
+    /**
+     * 获取内容的时候是不是连header也一起获取
+     *
+     * @param mixed $http_raw
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:31:00
+     */
+    public function set_http_raw($http_raw = false)
+    {
+        $this->options[CURLOPT_HEADER] = $http_raw;
+    }
+
+    /**
+     * set ip
+     *
+     * @param string $ip
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:32:36
+     */
+    public function set_ip($ip)
+    {
+        $headers = array(
+            'CLIENT-IP' => $ip,
+            'X-FORWARDED-FOR' => $ip
+        );
+        $this->headers = $this->headers + $headers;
+    }
+
+    /**
+     * set Headers
+     *
+     * @param string $headers
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:35:01
+     */
+    public function set_headers($headers)
+    {
+        $this->headers = $this->headers + $headers;
+    }
+
+    /**
+     * set Hosts
+     *
+     * @param string $hosts
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:36:43
+     */
+    public function set_hosts($hosts)
+    {
+        $headers = array(
+            'Hosts' => $hosts,
+        );
+        $this->headers = $this->headers + $headers;
+    }
+
+    /**
+     * set Gzip
+     *
+     * @param string $hosts
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:38:30
+     */
+    public function set_gzip($gzip)
+    {
+        if ($gzip) {
+            $this->options[CURLOPT_ENCODING] = 'gzip';
+        }
+    }
+
+    /**
+     * request
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-4-30 20:39:56
+     */
+    public function request($url, $method = "GET", $fields = array(), $headers = array(), $options = array())
+    {
+        $this->requests[] = array(
+            'url' => $url,
+            'method' => $method,
+            'fields' => $fields,
+            'headers' => $headers,
+            'options' => $options,
+        );
+        return true;
+    }
 }
