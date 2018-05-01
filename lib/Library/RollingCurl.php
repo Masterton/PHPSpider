@@ -265,4 +265,79 @@ class RollingCurl
         );
         return true;
     }
+
+    /**
+     *  get_options
+     *
+     * @param array $request
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-1 21:28:07
+     */
+    public function get_options($request)
+    {
+        $options = $this->options;
+        $headers = $this->headers;
+
+        if (ini_get('safe_mod' == 'Off' || !ini_get('safe_mode'))) {
+            $options[CURLOPT_FOLLOWLOCATION] = 1;
+            $options[CURLOPT_MAXREDIRS] = 5;
+        }
+
+        // 如果是 get 方式,直接拼凑一个 url 出来
+        if (strtolower($request['method']) == 'get' && !empty($request['fields'])) {
+            $url = $request['url'] . "?" . http_build_query($request['fields']);
+        }
+        // 如果是 post 方式
+        if (strtolower($request['method']) == 'post') {
+            $options[CURLOPT_POST] = 1;
+            $options[CURLOPT_POSTFIELDS] = $request['fields'];
+        }
+
+        // append custom options for this specific request
+        if ($request['options']) {
+            $options = $request['options'] + $options;
+        }
+
+        if ($request['headers']) {
+            $headers = $request['headers'] + $headers;
+        }
+
+        // 随机绑定 hosts,做负载均衡
+        /*if (self::$hosts) {
+            $parse_url = parse_url($url);
+            $host = $parse_url['host'];
+            $key = rand(0, count(self::$hosts)-1);
+            $ip = self::$hosts[$key];
+            $url = str_replace($host, $ip, $url);
+            self::$headers = array_merge(array('Host:'.$host), self::$headers);
+        }*/
+
+        // header 要这样拼凑
+        $headers_tmp = array();
+        foreach ($headers as $k => $v) {
+            $headers_tmp[] = $k . ":" . $v;
+        }
+        $headers = $headers_tmp;
+
+        $options[CURLOPT_URL] = $request['url'];
+        $options[CURLOPT_HTTPHEADER] = $headers;
+
+        return $options;
+    }
+
+    /**
+     *  GET 请求
+     *
+     * @param string $url
+     * @param array $headers
+     * @param array $options
+     * @return bool
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-1 21:40:32
+     */
+    public function get($url, $fields = array(), $headers = array(), $options = array())
+    {
+        return $this->request($url, 'get', $fields, $headers, $options);
+    }
 }
