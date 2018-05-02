@@ -340,4 +340,183 @@ class RollingCurl
     {
         return $this->request($url, 'get', $fields, $headers, $options);
     }
+
+    /**
+     * $fields 有三种类型:1、数组 2、http query 3、json
+     * 1、array('name' => 'name') 2、http_bulid_query(array('name' => 'name'))
+     * 3、json_encode(array('name' => 'name'))
+     * 前两种是普通的post, 可以用$_POST 方式获取
+     * 第三种是post stream(json rpc, 其实就是 webservice)
+     * 虽然是post方式,但是只能用流方式 http://input 或者 $HTTP_RAW_POST_DATA 获取
+     *
+     * @param string $url
+     * @param array $fields
+     * @param array $headers
+     * @param array $options
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-2 19:59:53
+     */
+    public function post($url, $fields = array(), $headers = array(), $options = array())
+    {
+        return $this->request($url, 'post', $fields, $headers, $options);
+    }
+
+    /**
+     * Execte processing
+     *
+     * @param int $window_size Max number of simultaneous connections
+     * @return string|bool
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-2 20:02:07
+     */
+    public function execute($window_size = null)
+    {
+        $count = sizeof($this->requests);
+        if ($count == 0) {
+            return false;
+        } elseif ($count == 1) { // 只有一个请求
+            return $this->single_curl();
+        } else {
+            // 开始 rolling curl, window_size 是最大同时连接数
+            return $this->rolling_curl($window_size);
+        }
+    }
+
+    /**
+     * single_curl
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-2 20:05:10
+     */
+    private function single_curl()
+    {
+        $ch = curl_init();
+        // 从请求队列里面弹出一个来
+        $request = array_shift($this->requests);
+        $options = $this->get_options($requests);
+        curl_setopt_array($ch, $options);
+        $output = curl_exec($ch);
+        $info = curl_getinfo($ch);
+        $error = null;
+        if ($output === false) {
+            $error = curl_error($ch);
+        }
+        // $output = substr($output, 10);
+        // $output = gzinflate($output);
+
+        // 其实一个请求的时候没事必要回调,直接返回数据就好了,不过这里算是多了一个功能吧,和多请求保持一样的操作
+        if ($this->callback) {
+            if (is_callback($this->callback)) {
+                call_user_func($this->callback, $output, $info, $request, $error);
+            }
+        } else {
+            return $output;
+        }
+        return true;
+    }
+
+    /**
+     * rolling_curl
+     *
+     * @param $window_size
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-2 20:11:53
+     */
+    private function rolling_curl($window_size = null)
+    {
+        // 如何设置了最大任务数
+        if ($window_size) {
+            $this->window_size = $window_size;
+        }
+
+        // 如果请求书 小于 任务数,设置任务数为请求数
+        if (sizeof($this->requests) < $this->window_size) {
+            $this->window_size = sizeof($this->requests);
+        }
+
+        // 如果任务数小于2个,不应该用这个方法的,用上面的single_curl方法就好了
+        if ($this->window_size < 2) {
+            exit("Window size must be greater than 1");
+        }
+
+        // 初始化任务队列
+        $master = curl_multi_init();
+
+        // 开始第一批请求
+        for ($i = 0; $i < $this->window_size; $i++) {
+            $ch = curl_init();
+            $options = $this->get_options($this->requests[$i]);
+            curl_setopt_array($ch, $options);
+            curl_multi_add_handle($master, $ch);
+            // 添加到请求数组
+            $key = (string) $ch;
+            $this->requestMap[$key] = $i;
+        }
+
+        do {
+            while (($execute = curl_multi_exec($master, $running)) == CURLM_CALL_MULTI_PERFORM) ;
+
+            // 如果
+            if ($execute != CURLM_OK) {
+                break;
+            }
+
+            // 一旦有一个请求完成,找出来,应为curl底层是select,所以最大受限于1024
+            while ($done = curl_multi_info_read($master)) {
+                // 从请求中获取信息、内容、错误
+                $info = curl_getinfo($done['handle']);
+                $output = curl_multi_getcontent($done['handle']);
+                $error = curl_error($done['handle']);
+
+                // 如果绑定了回调函数
+                $callback = $this->callback();
+                if (is_callback($callback)) {
+                    $key = (string) $done['handle'];
+                    $request = $this->requests[$this->requestMap[$key]];
+                    unset($this->requestMap[$key]);
+                    call_user_func($callback, $output, $info, $request, $error);
+                }
+
+                // 一个请求完了,就加一个进来,一直保证5个任务同时进行
+                if ($i < sizeof($this->requests) && isset($this->requests[$i]) && $i < count($this->requests)) {
+                    $ch = curl_init();
+                    $options = $this->get_options($this->requests[$i]);
+                    curl_setopt_array($ch, $options);
+                    curl_multi_add_handle($master, $ch);
+
+                    // 添加到请求数组
+                    $key = (string) $ch;
+                    $this->requestMap[$key] = $i;
+                    $i++;
+                }
+                // 把请求已经完成了得 curl handle 删除
+                curl_multi_remove_handle($master, $done['handle']);
+            }
+
+            // 当没有数据的时候进行堵塞,把 CPU 使用权交出来,避免上面 do 死循环空跑数据导致 CPU 100%
+            if ($running) {
+                curl_multi_select($master, $this->timeout);
+            }
+        } while ($running) ;
+        // 关闭任务
+        curl_multi_close($master);
+
+        // 把 请求清空,否则没有重新 new rolling_curl();
+        // 直接再次导入一批url的时候,就会把前面已经执行过的url又执行一轮
+        unset($this->requests);
+        return true;
+    }
+
+    /**
+     * 析构函数
+     *
+     * @return void
+     */
+    public function __destruct()
+    {
+        unset($this->window_size, $this->callback, $this->options, $this->headers, $this->requests);
+    }
 }
