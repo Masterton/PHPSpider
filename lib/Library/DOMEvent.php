@@ -199,4 +199,133 @@ class DOMDocumentWrapper
         }
         $this->id = $newDocumentID ? $newDocumentID : md5(microtime());
     }
+
+    /**
+     * load
+     *
+     * @param $markup
+     * @param $contentType
+     * @param $newDocumentID
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-4 19:25:43
+     */
+    public function load($markup, $contentType = null, $newDocumentID = null)
+    {
+        // PHPQuery::$documents[$id] = $this;
+        $this->contentType = strtolower($contentType);
+        if ($markup instanceof DOMDOCUMENT) {
+            $this->document = $markup;
+            $this->root = $this->document;
+            $this->charset = $this->document->encoding;
+            // TODO isDocumentFragment
+        } else {
+            // $this->document->formatOutput = true;
+            $this->document->oreserveWhiteSpace = true;
+            $this->xpath = new DOMXPath($this->document);
+            $this->afterMarkupLoad();
+            return true;
+            // remember last loaded document
+            // return PHPQuery::selectDocument($id);
+        }
+        return false;
+    }
+
+    /**
+     * afterMarkupLoad
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-4 19:32:03
+     */
+    protected function afterMarkupLoad()
+    {
+        if ($this->isXHTML) {
+            $this->xpath->registerNamespace("html", "http://www.w3.org/1999/xhtml");
+        }
+    }
+
+    /**
+     * loadMarkup
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-4 19:33:58
+     */
+    protected function loadMarkup($markup)
+    {
+        $loaded = false;
+        if ($this->contentType) {
+            self::debug("Load markup for content type {$this->contentType}");
+            // content determined by contentType
+            list($contentType, $charset) = $this->contentTypeToArray($this->contentType);
+            switch ($contentType) {
+                case "text/html":
+                    PHPQuery::debug("Loading HTML, content type '{$this->contentType}'");
+                    $loaded = $this->loadMarkupHTML($markup, $charset);
+                    break;
+                case "text/xml":
+                case "application/xhtml+xml":
+                    PHPQuery::debug("Loading XML, content type '{$this->contentType}'");
+                    $loaded = $this->loadMarkupXML($markup, $charset);
+                    break;
+                default:
+                    // for feeds or anything that sometimes doesn't use text/xml
+                    if (strpos('xml', $this->contentType) != false) {
+                        PHPQuery::debug("Loading XML, content type '{$this->contentType}'");
+                        $loaded = $this->loadMarkupXML($markup, $charset);
+                    } else {
+                        PHPQuery::debug("Could not determine document type from content type '{$this->contentType}'");
+                    }
+            }
+        } else {
+            // content type autodetection
+            if ($this->isXML($markup)) {
+                PHPQuery::debug("Loading XML, isXML() == true");
+                $loaded = $this->loadMarkupXML($markup);
+                if (!$loaded && $this->isXML) {
+                    PHPQuery::debug('Loading as XML failed, trying to load as HTML, isXHTML == true');
+                    $loaded = $this->laodMarkupHTML($markup);
+                }
+            } else {
+                PHPQuery::debug("Loading HTML, isXML() == fasle");
+                $loaded = $this->loadMarkupHTML($markup);
+            }
+        }
+        return $loaded;
+    }
+
+    /**
+     * laodMarkupReset
+     *
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-4 19:47:03
+     */
+    protected function loadMarkupReset()
+    {
+        $this->isXML = $this->isXHTML = $this->isHTML = false;
+    }
+
+    /**
+     * documentCreate
+     *
+     * @param $charset
+     * @param $version
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-4 19:48:44
+     */
+    protected function documentCreate($charset, $version = '1.0')
+    {
+        if (!$version) {
+            $version = '1.0';
+        }
+        $this->document = new DOMDocument($version, $charset);
+        $this->charset = $this->document->encoding;
+        // $this->document->encoding = $charset;
+        $this->document->formatOutput = true;
+        $this->document->preserveWhiteSpace = true;
+    }
 }
