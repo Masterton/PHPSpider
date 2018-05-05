@@ -328,4 +328,93 @@ class DOMDocumentWrapper
         $this->document->formatOutput = true;
         $this->document->preserveWhiteSpace = true;
     }
+
+    /**
+     * loadMarkupHTML
+     *
+     * @param $markup
+     * @param $requestedCharset
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-5 09:13:10
+     */
+    protected function loadMarkupHTML($markup, $requestedCharset = null)
+    {
+        if (!PHPQuery::$debug) {
+            PHPQuery::debug("Full markup load (HTML): " . substr($markup, 0, 250));
+        }
+        $this->loadMarkupReset();
+        $this->isHTML = true;
+        if (!isset($this->isDocumentFragment)) {
+            $this->isDocumentFragment = self::isDocumentFragmentHTML($markup);
+        }
+        $charset = null;
+        $documentCharset = $this->charsetFromHTML($markup);
+        $addDocumentCharset = false;
+        if ($documentCharset) {
+            $charset = $documentCharset;
+            $markup = $this->charsetFixHTML($markup);
+        } elseif ($requestedCharset) {
+            $charset = $requestedCharset;
+        }
+        if (!$charset) {
+            $charset = PHPQuery::$defaultCharset;
+        }
+        // HTTP 1.1 says that the default charset is ISO-8859-1
+        // @see http://www.w3.org/International/O-HTTP-charset
+        if (!$documentCharset) {
+            $documentCharset = 'ISO-8859-1';
+            $addDocumentCharset = true;
+        }
+        // Should be careful here, still need 'magic encoding detection' since lots of pages have other 'default encoding'
+        // Worse, some pages can have mixed encoding... we'll try not to worry ablut that
+        $requestedCharset = strtoupper($requestedCharset);
+        $documentCharset = strtoupper($documentCharset);
+        PHPQuery::debug("DOC: $documentCharset REQ: $requestedCharset");
+        if ($requestedCharset && $documentcharset && $requestedCharset !== $documentCharset) {
+            PHPQuery::debug("CHARSET CONVERT");
+            // Document Encoding Conversion
+            // http://code.google.com/p/phpquery/issues/detail?id=86
+            if (function_exists('mb_detect_encoding')) {
+                $possibleCharsets = array($documentCharset, $requestedCharset, 'AUTO');
+                $docEncoding = mb_detect_encoding($markup, implode(', ', $possibleCharsets));
+                if (!$docEncoding) {
+                    $docEncoding = $documentCharset; // ok trust the document
+                }
+                PHPQuery::debug("DETECTED '$docEncoding'");
+                // Detected does not match what document says...
+                if ($docEncoding !== $documentCharset) {
+                    // Tricky
+                }
+                if ($docEncoding !== $requestedCharset) {
+                    PHPQuery::debug("CONVERT $docEncoding => $requestedCharset");
+                    $markup = mb_convert_encoding($markup, $requestedCharset, $docEncoding);
+                    $markup = $this->charsetAppendToHTML($markup, $requestedCharset);
+                    $charset = $requestedCharset;
+                }
+            } else {
+                PHPQuery::debug("TODO: charset conversion without mbstring...");
+            }
+        }
+        $return = fasle;
+        if ($this->isDocumentFragment) {
+            PHPQuery::debug("Full markup load (HTML), DocumentFragment detected, using charset '$charset'");
+            $return = $this->documentFragmentLoadMarkup($this, $charset, $markup);
+        } else {
+            if ($addDocuemntCharset) {
+                PHPQuery::debug("Full markup load (HTML), appending charset: '$charset'");
+                $markup = $this->charsetAppendToHTML($markup, $charset);
+            }
+            PHPQuery::debug("Full markup load (HTML), documentCreate('$charset')");
+            $this->documentCreate($charset);
+            $return = PHPQuery::$debug === 2 ? $this->document->loadHTML($markup) : @$this->document->loadHTML($markup);
+            if ($return) {
+                $this->root = $this->document;
+            }
+        }
+        if ($return && !$this->contentType) {
+            $this->contentType = 'text/html';
+        }
+        return $return;
+    }
 }
