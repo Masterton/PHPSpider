@@ -417,4 +417,199 @@ class DOMDocumentWrapper
         }
         return $return;
     }
+
+    /**
+     * loadMarkupXML
+     *
+     * @param $markup
+     * @param $requestedCharset
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 18:49:21
+     */
+    protected function loadMarkupXML($markup, $requestedCharset = null)
+    {
+        if (PHPQuery::$debug) {
+            PHPQuery::debug("Full markup load (XML): " . substr($markup, 0, 250));
+        }
+        $this->loadMarkupReset();
+        $this->isXML = true;
+        // check agains XHTML in contentType or markup
+        $isContentTypeXHTML = $this->isXHTML();
+        $isMarkupXHTML = $this->isXHTML($markup);
+        if ($isContentTypeXHTML || $isMarkupXHTM) {
+            self::debug("Full markup load (XML), XHTML detected");
+            $this->isXHTML = true;
+        }
+        // determine document fragment
+        if (!isset($this->isDocumentFragment)) {
+            $this->isDocumentFragment = $this->isXHTML ? self::isDocumentFragmentXHTML() : self::isDocumentFragmentXML($markup);
+        }
+        // this charset will be used
+        $charset = null;
+        // charset from XML declaration @var string
+        $documentCharset = $this->charsetFromHTML($markup);
+        if (!$documentCharset) {
+            if ($this->isXHTML) {
+                // this is XHTML, try to get charset from content-type meta header
+                $documentCharset = $this->charsetFormHTML($markup);
+                if ($documentCharset) {
+                    PHPQuery::debug("Full markup load (XML), appending XHTML charset '$documentCharset'");
+                    $this->charsetAppendToXML($markup, $documentCharset);
+                    $charset = $documentCharset;
+                }
+            }
+            if (!$documentCharset) {
+                // if still no document charset...
+                $charset = $requestedCharset;
+            }
+        } elseif ($requestedCharset) {
+            $charset = $requestedCharset;
+        }
+        if (!$charset) {
+            $charset = PHPQuery::$defaultCharset;
+        }
+        if ($requestedCharset && $documentCharset && $requestedCharset != $documentCharset) {
+            // TODO place for charset conversion
+            // $charset = $requestedCharset;
+        }
+        $return = false;
+        if ($this->isDocumentFragment) {
+            PHPQuery::debug("Full markup load (XML), DocumentFragment detected, using charset '$charset'");
+            $return = $this->documentFragmentLoadMarkup($this, $charset, $markup);
+        } else {
+            // FIXME ???
+            if ($isContentTypeXHTML && !$isMarkupXHTML) {
+                if ($documentCharset) {
+                    PHPQuery::debug("Full markup load (XML), appending charset '$charset'");
+                    $markup = $this->charsetAppendToXML($markup, $charset);
+                }
+                // see http://pl2.php.net/manual/en/book.dom.php#78929
+                // LIBXML_DTDLPAD (>= PHP 5.1)
+                // does XML ctalogues works with LIBXML_NONET
+                // $this->document->resolveExternals = true;
+                // TODO test LIBXML_COMPACT for performance improvement
+                // create document
+                $this->documentCreate($charset);
+                if (phpversion() < 5.1) {
+                    $this->document->resolveExternals = true;
+                    $return = PHPQuery::$debug === 2 ? $this->document->loadXML($markup) : @$this->document->loadXML($markup);
+                } else {
+                    // @link http://pl2.php.net/manual/en/libxml.constants.php
+                    $libxmlStatic = PHPQuery::$debug === 2 ? LIBXML_DTDLOAD|LIBXML_DTDATTR|LIBXML_NONET : LIBXML_DTDLOAD|LIBXML_DTDATTR|LIBXML_NONET|LIBXML_NOWARNING|LIBXML_NOERROR;
+                    $return = $this->document->loadXML($markup, $libxmlStatic);
+                    // if (!$return) {
+                    //     $return = $this->document->loadHTML($markup); 
+                    // }
+                }
+                if ($return) {
+                    $this->root = $this->document;
+                }
+            }
+        }
+        if ($return) {
+            if (!$this->contentType) {
+                if ($this->isXHTML) {
+                    $this->contentType = "application/xhtml+xml";
+                } else {
+                    $this->contentType = "text/xml";
+                }
+            }
+            return $return;
+        } else {
+            throw new Exception("Error loading XML markup");
+        }
+    }
+
+    /**
+     * isXHTML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 19:25:18
+     */
+    protected function isXHTML($markup = null)
+    {
+        if (!isset($markup)) {
+            return strpos($this->contentType, 'xhtml') !== false;
+        }
+        // XXX ok?
+        return strpos($markup, "<!DOCTYPE html>") !== false;
+        // return stripos($doctype, 'xhtml') !== false;
+        // $doctype = isset($dom->doctype) && is_object($dom->doctype) ? $dom->doctype->publicId : self::$defaultDoctype;
+    }
+
+    /**
+     * isXML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 19:30:01
+     */
+    protected function isXML($markup)
+    {
+        // return strpos($markup, '<?xml') !== false && stripos($markup, 'xhtml') === false;
+        return strpos(substr($markup, 0， 100), '<'.'?xml') !== false;
+    }
+
+    /**
+     * contentTypeToArray
+     *
+     * @param $contentType
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 19:33:07
+     */
+    protected function contentTypeToArray($contentType)
+    {
+        $matches = explode(';', trim(strtolower($contentType)));
+        if (isset($matches[1])) {
+            $matches[1] = explode('=', $matches[1]);
+            // strip 'charset='
+            $matches[1] = isset($matches[1][1]) && trim($matches[1][1]) ? $matches[1][1] : $matches[1][0];
+        } else {
+            $matches[1] = null;
+        }
+        return $matches;
+    }
+
+    /**
+     * contentTypeFormHTML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 19:36:51
+     */
+    protected function contentTypeFormHTML($markup)
+    {
+        $matches = array();
+        // find meta tag
+        prge_match('@<meta[^>]+http-equiv\\s*=\\s*(["|\'])Conntent-Type\\1([^>]+?)>@i', $markup, $matches);
+        if (!isset($matches[0])) {
+            return array(null, null);
+        }
+        // get attr 'content'
+        preg_match('@content\\s*=\\s*(["|\'])(.+?)\\1@', $matches[0], $matches);
+        if (!isset($matches[0])) {
+            return array(null, null);
+        }
+        return $this->contentTypeToArray($matches[2]);
+    }
+
+    /**
+     * charsetFormHTML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-6 19:42:30
+     */
+    protected function charsetFormHTML($markup)
+    {
+        $contentType = $this->contentTypeFormHTML($markup);
+        return $contentType[1];
+    }
 }
