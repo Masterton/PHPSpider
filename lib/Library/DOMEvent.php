@@ -612,4 +612,135 @@ class DOMDocumentWrapper
         $contentType = $this->contentTypeFormHTML($markup);
         return $contentType[1];
     }
+
+    /**
+     * charsetFromXML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:00:59
+     */
+    protected function charsetFromXML($markup)
+    {
+        // find declaration
+        preg_match('@<'.'?xml[^>]+encoding\\s*=\\s*(["|\'])(.*?)\\1@i', $markup, $matches);
+        return isset($matches[2]) ? strtolower($matches[2]) : null;
+    }
+
+    /**
+     * Repositions meta[type=charset] at the start of head. Bypasses DOMDocument bug.
+     *
+     * @link http://code.google.com/p/phpquery/issues/detail?id=80
+     * @param $html
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:04:37
+     */
+    protected function charsetFixHTML($markup)
+    {
+        // find meta tag
+        preg_match('@\s*<meta[^>]+http-equiv\\s*=\\s*(["|\'])Content-Type\\1([^>]+?)>@i', $markup, $matches, PREG_OFFSET_CAPTURE);
+        if (!isset($matches[0])) {
+            return ;
+        }
+        $metaContentType = $matches[0][0];
+        $markup = substr($markup, 0, $matches[0][1]).substr($markup, $matches[0][1]+strlen($metaContentType));
+        $headStart = stripos($markup, '<head>');
+        $markup = substr($markup, 0, $headStart+6).$metaContentType.substr($markup, $headStart+6);
+        return $markup;
+    }
+
+    /**
+     * charsetAppendToHTML
+     *
+     * @param $html
+     * @param $charset
+     * @param $xhtml
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:10:07
+     */
+    protected function charsetAppendToHTML($html, $charset, $xhtml = false)
+    {
+        // remove existing meta[type=content-type]
+        $html = preg_replace('@\s*<meta[^>]+http-equiv\\s*=\\s*(["|\'])Content-Type\\1([^>]+?)>@i', '', $html);
+        $meta = '<meta http-equiv="Content-Type" content="text/html;charset='.$charset.'" '.($xhtml ? '/' : '').'>';
+        if (strpos($html, '<head') === false) {
+            if (strpos($html, '<html') === false) {
+                return $meta . $html;
+            } else {
+                return preg_replace('@<html(.*?)(?(?<!\?)>)@s', "<html\\1><head>{$meta}</head>", $html);
+            }
+        } else {
+            return preg_replace('@<head(.*?)(?(?<!\?)>)@s', '<head\\1'.$meta, $html);
+        }
+    }
+
+    /**
+     * charsetAppendToXML
+     *
+     * @param $markup
+     * @param $charset
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:17:16
+     */
+    protected function charsetAppendToXML($markup, $charset)
+    {
+        $declaration = '<'.'?xml version="1.0" encoding="'.$charset.'"?'.'>';
+        return $declaration . $markup;
+    }
+
+    /**
+     * isDocumentFragmentHTML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:19:36
+     */
+    public static function isDocumentFragment($markup)
+    {
+        return stripos($markup, '<html') === false && stripos($markup, '<!doctype') === false;
+    }
+
+    /**
+     * isDocumentFragmentXML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:21:44
+     */
+    public static function isDocumentFragmentXML($markup)
+    {
+        return stripos($markup, '<'.'?xml') === false;
+    }
+
+    /**
+     * isDocumentFragmentXHTML
+     *
+     * @param $markup
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:23:31
+     */
+    public static function isDocumentFragmentXHTML($markup)
+    {
+        return self::isDocumentFragmetnHTML($markup);
+    }
+
+    /**
+     * importAttr
+     *
+     * @param $value
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-7 19:25:02
+     */
+    public function importAttr($value)
+    {
+        // TODO
+    }
 }
