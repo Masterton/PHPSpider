@@ -743,4 +743,144 @@ class DOMDocumentWrapper
     {
         // TODO
     }
+
+    /**
+     * import
+     *
+     * @param $source
+     * @param $sourceCharset
+     * @return array Array of imported nodes.
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-8 19:06:58
+     */
+    public function import($source, $sourceCharset = null)
+    {
+        // TODO charset conversions
+        $return = array();
+        if ($source instanceof DOMNODE && !($source instanceof DOMNODELIST)) {
+            $source = array($source);
+        }
+        /*if (is_array($source)) {
+            foreach ($source as $node) {
+                if (is_string($node)) {
+                    // string markup
+                    $fake = $this->documentFragmentCreate($node, $sourceCharset);
+                    if ($fake === false) {
+                        throw new Exception("Error loading documentFragment markup");
+                    } else {
+                        $return = array_merge($return, $this->import($fake->root->childNodes));
+                    }
+                } else {
+                    $return[] = $this->document->importNode($node, true);
+                }
+            }
+            return $return;
+        } else {
+            // string markup
+            $fake = $this->documentFragmentCreate($source, $sourceCharset);
+            if ($fake === false) {
+                throw new Exception("Error loading documentFragment markup");
+            } else {
+                return $this->import($fake->root->childNodes);
+            }
+        }*/
+        if (is_array($source) || $source instanceof DOMNODELIST) {
+            // dom nodes
+            self::debug('Importing nodes to document');
+            foreach ($source as $node) {
+                $return[] = $this->document->importNode($node, true);
+            }
+        } else {
+            // string markup
+            $fake = $this->documentFragmentCreate($source, $sourceCharset);
+            if ($fake === false) {
+                throw new Exception("Error loading documentFragment markup");
+            } else {
+                return $this->import($fake->root->childNodes);
+            }
+        }
+        return $return;
+    }
+
+    /**
+     * documentFragmentCreate
+     *
+     * @param $source
+     * @param $charset
+     * @return DOMDocumentWrapper
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-8 19:19:00
+     */
+    protected function documentFragmentCreate($source, $charset = null)
+    {
+        $fake = new DOMDocumentWrapper();
+        $fake->contentType = $this->contentType;
+        $fake->isXML = $this->isXML;
+        $fake->isHTML = $this->isHTML;
+        $fake->isXHTML = $this->isXHTML;
+        $fake->root = $fake->document;
+        if (!$charset) {
+            $charset = $this->charset;
+        }
+        // $fake->documentCreate($this->charset);
+        if ($source instanceof DOMNODE && !($source instanceof DOMNODELIST)) {
+            $source = array($source);
+        }
+        if (is_array($source) || $source instanceof DOMNODELIST) {
+            // dom nodes
+            // load fake document
+            if (!$this->documentFragmentLoadMarkup($fake, $charset)) {
+                return false;
+            }
+            $nodes = $fake->import($source);
+            foreach ($nodes as $node) {
+                $fake->root->appendChild($node);
+            }
+        } else {
+            // string markup
+            $this->documentFragmentLoadMarkup($fake, $charset, $source);
+        }
+        return $fake;
+    }
+
+    /**
+     * documentFragmentLoadMarkup
+     *
+     */
+    private function documentFragmentLoadMarkup($fragment, $charset, $markup = null)
+    {
+        // TODO
+    }
+
+    /**
+     * documentFragmentToMarkup
+     *
+     * @param $fragment
+     * @return void
+     * @author Masterton <zhengcloud@foxmail.com>
+     * @time 2018-5-8 19:27:49
+     */
+    protected function documentFragmentToMarkup($fragment)
+    {
+        PHPQuery::debug("documentFragmentToMarkup");
+        $tem = $fragment->isDocumentFragment;
+        $fragment->isDocumentFragment = false;
+        $markup = $fragment->markup();
+        if ($fragment->isXML) {
+            $markup = substr($markup, 0, strrpos($markup, '</fake>'));
+            if ($fragment->isXHTML) {
+                $markup = substr($markup, strpos($markup, '<fake')+43);
+            } else {
+                $markup = substr($markup, strpos($markup, '<fake>')+6);
+            }
+        } else {
+            $markup = substr($markup, strpos($markup, '<body>')+6);
+            $markup = substr($markup, 0, strrpos($markup, '</body>'));
+        }
+        $fragment->isDocumentFragment = $tem;
+        if (PHPQuer::$debug) {
+            PHPQuery::debug('documentFragmentToMarkup: '.substr($markup, 0, 150));
+        }
+        return $markup;
+    }
 }
