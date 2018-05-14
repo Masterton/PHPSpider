@@ -11,7 +11,15 @@ namespace PHPSpider\Callback;
 /**
  * CallbackParameterToReference
  */
-class CallbackParameterToReference
+class CallbackParameterToReference extends Callback
 {
-    // TODO
+    /**
+     * @param $reference
+     * @TODO implement $paramIndex;
+     * param index choose which callback param will be passed to reference
+     */
+    public function __construct(&$reference)
+    {
+    	$this->callback = &$reference;
+    }
 }

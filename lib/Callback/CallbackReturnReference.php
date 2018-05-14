@@ -11,7 +11,7 @@ namespace PHPSpider\Callback;
 /**
  * CallbackReturnReference
  */
-class CallbackReturnReference
+class CallbackReturnReference extends Callback
 {
     // TODO
 }
