@@ -13,7 +13,7 @@
 // PHPSpider请求类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 if (!function_exists('curl_file_create')) {
     function curl_file_create($filename, $mimetype = '', $postname = '')
@@ -49,7 +49,7 @@ class Requests
     public static $proxies = array(); // random proxy ip
     public static $raw = ""; // head + body content returned form server sent here
     public static $head = ""; //head content
-    public static $content = "": // The body before encoding
+    public static $content = ""; // The body before encoding
     public static $text = ""; // The body after encoding
     public static $info = array(); // curl info
     public static $history = 302; // http request status before redirect. ex:30x
@@ -252,7 +252,7 @@ class Requests
      */
     public static function set_useragent($useragent)
     {
-        self::$useragent = is_array($useragent) ? $useragent : array($useragent);
+        self::$useragents = is_array($useragent) ? $useragent : array($useragent);
     }
 
     /**
@@ -355,11 +355,11 @@ class Requests
 
             // 没有转码前
             self::$encoding = $encoding;
-            self::$imput_encoding = $encoding;
+            self::$input_encoding = $encoding;
         }
 
         // 设置了输出编码的转码, 注意: xpath只支持utf-8, iso-8859-1 不要转,他本省就是utf-8
-        if (self::$output_encoding && self::$input_encoding != self::$input_encoding && self::$input_encoding != 'iso-8859-1') {
+        if (self::$output_encoding && self::$input_encoding != self::$output_encoding && self::$input_encoding != 'iso-8859-1') {
             // 先将非uft-8编码,转化为urf-8编码
             $body = @mb_convert_encoding($body, self::$output_encoding, self::$input_encoding);
             // 将页面中的指定的编码方式修改为utf-8
@@ -385,7 +385,7 @@ class Requests
      * @author Masterton <zhengcloud@foxmail.com>
      * @time 2018-4-7 00:22:03
      */
-    public static function get_response_cookies($header, $doamin)
+    public static function get_response_cookies($header, $domain)
     {
         // 解析Cookie并存入 self::$cookies 方便调用
         preg_match_all("/.*?Set\-Cookie: ([^\r\n]*)/i", $header, $matches);
@@ -394,11 +394,11 @@ class Requests
         // 解析到Cookie
         if (!empty($cookies)) {
             $cookies = implode(";", $cookies);
-            $cookies = explode(";", $cookeis);
+            $cookies = explode(";", $cookies);
             foreach ($cookies as $cookie) {
                 $cookie_arr = explode("=", $cookie, 2);
                 // 过滤 httponly、secure
-                if (count($cookie_arr) > 2) {
+                if (count($cookie_arr) < 2) {
                     continue;
                 }
                 $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
@@ -409,7 +409,7 @@ class Requests
                 if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) {
                     continue;
                 }
-                self::$domain_cookies[$domian][trim($cookie_arr[0])] = trim($cookie_arr[1]);
+                self::$domain_cookies[$domain][trim($cookie_arr[0])] = trim($cookie_arr[1]);
             }
         }
     }
@@ -482,9 +482,9 @@ class Requests
         // $pattern = '/^http(s)?:\\/\\/.+/';
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if (preg_match($pattern, $url)) {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     /**
@@ -786,13 +786,12 @@ class Requests
         self::$history = self::get_history($header);
         self::$headers = self::get_response_headers($header);
         self::get_response_cookies($header, $domain);
-        // $data = substr($data, 10);
-        // $data = gzinflate($data);
-        return $next;
+
+        return $text;
     }
 
     /**
-     * 获取历史记录
+     * 获取重定向状态码
      *
      * @param mixed $header
      * @return void

@@ -13,7 +13,7 @@
 // PHPSpider Redis操作类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 use Redis;
 use Exception;

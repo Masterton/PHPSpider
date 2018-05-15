@@ -13,7 +13,7 @@
 // PHPSpider数据库类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 class DB
 {

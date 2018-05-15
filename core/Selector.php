@@ -13,7 +13,7 @@
 // PHPSpider选择器类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 use PHPSpider\library\PHPQuery;
 use DOMDocument;

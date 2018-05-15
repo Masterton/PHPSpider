@@ -6,7 +6,7 @@
  * @time 2018-5-9 11:23:29
  */
 
-namespace PHPSpider\Redis;
+namespace PHPSpider\Lib\Redis;
 
 /**
  * Redis

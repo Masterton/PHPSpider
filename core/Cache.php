@@ -13,7 +13,7 @@
 // PHPSpider缓存类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 class Cache
 {

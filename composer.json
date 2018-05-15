@@ -24,7 +24,8 @@
     },
     "autoload": {
         "psr-4": {
-            "PHPSpider\\": "src/"
+            "PHPSpider\\Core\\": "core/",
+            "PHPSpider\\Lib\\": "lib/"
         }
     },
     "scripts": {

@@ -6,7 +6,7 @@
  * @time 2018-5-9 11:23:29
  */
 
-namespace PHPSpider\Callback;
+namespace PHPSpider\Lib\Callback;
 
 /**
  * CallbackParam

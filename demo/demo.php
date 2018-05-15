@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
-use PHPSpider\core\PHPSpider;
+use PHPSpider\Core\PHPSpider;
 // use PHPSpider\core\requests;
 // use PHPSpider\core\db;
 
@@ -14,45 +14,66 @@ use PHPSpider\core\PHPSpider;
 //exit;
 
 $configs = array(
-    'name' => 'test',
+    'name' => '马蜂窝',
     'tasknum' => 1,
-    'save_running_state' => true,
-    //'multiserver' => true,
+    // 'save_running_state' => true,
+    // 'multiserver' => true,
     'log_show' => true,
-    //'save_running_state' => false,
+    // 'save_running_state' => false,
     // 'multiserver' => true,
     'domains' => array(
-        'www.test.com'
+        'www.mafengwo.cn'
     ),
     'scan_urls' => array(
-        "http://www.test.com/qingchunmeinv/"
+        "http://www.mafengwo.cn/travel-scenic-spot/mafengwo/10088.html"
     ),
     'list_url_regexes' => array(
-        "http://www.test.com/qingchunmeinv/index_\d+.html"
+        "http://www.mafengwo.cn/mdd/base/list/pagedata_citylist\?page=\d+",
+        "http://www.mafengwo.cn/gonglve/ajax.php\?act=get_travellist\&mddid=\d+",
     ),
     'content_url_regexes' => array(
-        "http://www.test.com/qingchunmeinv/\d+.html"
+        "http://www.mafengwo.cn/i/\d+.html"
     ),
     //'export' => array(
         //'type' => 'db', 
         //'table' => 'meinv_content',
     //),
-    'queue_config' => array(
+    /*'queue_config' => array(
         'host'      => '127.0.0.1',
         'port'      => 6379,
         'pass'      => '',
         'db'        => 5,
         'prefix'    => 'phpspider',
         'timeout'   => 30,
-    ),
-    'db_config' => array(
+    ),*/
+    /*'db_config' => array(
         'host'  => '127.0.0.1',
         'port'  => 3306,
         'user'  => 'test',
         'pass'  => 'test',
         'name'  => 'test',
+    ),*/
+    'fields' => array(
+        // 标题
+        array(
+            'name' => "name",
+            'selector' => "//h1[contains(@class,'headtext')]",
+            //'selector' => "//div[@id='Article']//h1",
+            'required' => true,
+        ),
+        // 分类
+        array(
+            'name' => "city",
+            'selector' => "//div[contains(@class,'relation_mdd')]//a",
+            'required' => true,
+        ),
+        // 出发时间
+        array(
+            'name' => "date",
+            'selector' => "//li[contains(@class,'time')]",
+            'required' => true,
+        ),
     ),
-    'fields' => array(),
 );
 
 $spider = new PHPSpider($configs);

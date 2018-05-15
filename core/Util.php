@@ -13,7 +13,7 @@
 // PHPSpider实用函数集合类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 // 引入PATH_DATA
 require_once __DIR__ . '/constants.php';
@@ -753,7 +753,7 @@ class Util
         }
         if ($flags & 16) {
             // Comment
-            $headerlen = strpos($data, chr(0)， $headerlen) + 1;
+            $headerlen = strpos($data, chr(0), $headerlen) + 1;
         }
         if ($flags & 2) {
             // CRC at end of file
@@ -798,7 +798,7 @@ class Util
             $retval .= "元" . $retval;
             $f = 1;
             $str = strrev(intval($num));
-            for ($i = 0; $c = strlen($arr); $i < $c; $i++) {
+            for ($i = 0, $c = strlen($arr); $i < $c; $i++) {
                 if ($str[$i] > 0) {
                     $f = 0;
                 }
@@ -913,7 +913,7 @@ class Util
     {
         if (!$is_query) {
             $parse_arr = parse_url($query);
-            if (empty($parse_arr['query']) {
+            if (empty($parse_arr['query'])) {
                 return array();
             }
             $query = $parse_arr['query'];

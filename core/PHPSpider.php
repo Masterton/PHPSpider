@@ -13,11 +13,17 @@
 // PHPSpider核心类文件
 //----------------------------------
 
-namespace PHPSpider\core;
+namespace PHPSpider\Core;
 
 require_once __DIR__ . '/constants.php';
 
 use Exception;
+use PHPSpider\Core\Requests;
+use PHPSpider\Core\Selector;
+use PHPSpider\Core\Queue;
+use PHPSpider\Core\DB;
+use PHPSpider\Core\Util;
+use PHPSpider\Core\Log;
 
 // 启动的时候生成data目录
 Util::path_exists(PATH_DATA);
@@ -422,7 +428,7 @@ class PHPSpider
         // 先打开以显示验证错误内容
         Log::$log_show = true;
         Log::$log_file = isset($configs['log_file']) ? $configs['log_file'] : PATH_DATA.'/phpspider.log';
-        Log::$log_type = isset($config['log_type']) ? $configs['log_type'] : false;
+        Log::$log_type = isset($configs['log_type']) ? $configs['log_type'] : false;
 
         // 彩蛋
         $included_files = get_included_files();
@@ -452,7 +458,7 @@ class PHPSpider
         self::$queue_config = isset($configs['queue_config'])    ? $configs['queue_config']    : array();
 
         // 是否设置了并发任务数,并且大于1,而且不是windows环境
-        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win())
+        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !Util::is_win())
         {
             self::$tasknum = $configs['tasknum'];
         }
@@ -571,7 +577,7 @@ class PHPSpider
         // $this->check_export();
 
         // 检查缓存 TODO 预留功能
-        $this->check_cache();
+        // $this->check_cache();
 
         // 检查 scan_urls
         if (empty(self::$configs['scan_urls'])) {
@@ -609,9 +615,7 @@ class PHPSpider
             $header .= "  * Documentation: https:doc.phpspider.org\n";
             $header .= "  * Task Number: " . self::$tasknum . "\n\n";
             $header .= "Input \"php $start_file stop\" to quit. Start success.\n";
-            if (!Util::is_win()) {
-                $header .= "\033[0m";
-            }
+            if (!Util::is_win()) $header .= "\033[0m";
             Log::note($header);
 
             // 如果是守护进程,恢复日志状态
@@ -653,7 +657,7 @@ class PHPSpider
             $this->install_signal();
 
             // 开始采集
-            // $this->do_collect_page();
+            $this->do_collect_page();
 
             // 从服务器列表中删除当前服务器信息
             // $this->del_server_list(self::$serverid);
@@ -671,6 +675,7 @@ class PHPSpider
     public function parse_command()
     {
         // 检查运行命令的参数
+        // $argv 传递给脚本的参数数组
         global $argv;
         $start_file = $argv[0];
 
@@ -1120,12 +1125,14 @@ class PHPSpider
         $link = $options;
         $link['url'] = $url;
         $link['url_type'] = 'scan_page';
+        // 压缩数据
         $link = $this->link_uncompress($link);
 
+        // 是否列表页面
         if ($this->is_list_page($url)) {
             $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link, $allowed_repeat);
-        } elseif ($this->is_content_page($url)) {
+        } elseif ($this->is_content_page($url)) { // 是否内容页面
             $link['url_type'] = 'content_page';
             $status = $this->queue_lpush($link, $allowed_repeat);
         } else {
@@ -1165,13 +1172,16 @@ class PHPSpider
         $link = $opeions;
         $link['url'] = $url;
         $link['depth'] = $depth;
+        // 解压数据
         $link = $this->link_uncompress($link);
 
+        // 是否列表页面
         if ($this->is_list_page($url)) {
             $link['url_typr'] = "list_page";
             $status = $this->queue_lpush($link);
         }
 
+        // 是否内容页面
         if ($this->is_content_page($url)) {
             $link['url_type'] = "content_page";
             $status = $this->queue_lpush($link);
@@ -1316,7 +1326,7 @@ class PHPSpider
             'method' => isset($link['method']) ? $link['method'] : '',
             'headers' => isset($link['headers']) ? $link['headers'] : array(),
             'params' => isset($link['params']) ? $link['params'] : array(),
-            'content_data' => isset($link['content_data']) ? $link['content_data'] : '',
+            'context_data' => isset($link['context_data']) ? $link['context_data'] : '',
             'proxy' => isset($link['proxy']) ? $link['proxy'] : self::$configs['proxy'],
             'try_num' => isset($link['try_num']) ? $link['try_num'] : 0,
             'max_try' => isset($link['max_try']) ? $link['max_try'] : self::$configs['max_try'],
@@ -1596,17 +1606,17 @@ class PHPSpider
         Log::info("Collected pages: {$get_collected_url_num}");
 
         // 多任务的时候输出爬虫序号
-        if (self::$task_num > 1) {
+        if (self::$tasknum > 1) {
             Log::info("Current task id: " . self::$taskid);
         }
 
         // 先进先出
         $link = $this->queue_rpop();
         $link = $this->link_uncompress($link);
-        $url = $links['url'];
+        $url = $link['url'];
 
         // 标记为已爬取网页
-        $this->incr_collected_url_num();
+        $this->incr_collected_url_num($url);
 
         // 爬取网页开始时间
         $page_time_start = microtime(true);
@@ -1635,6 +1645,7 @@ class PHPSpider
         );
         // printf("memory usage: %.2f M\n", memory_get_usage() / 1024 / 1024);
         unset($html);
+
         // --------------------------------------
         // 处理回调函数
         // --------------------------------------
@@ -1658,7 +1669,7 @@ class PHPSpider
 
         // 是否从当前页面分析提取URL
         // 回调函数如果返回false标识不需要再从此网页中发现待爬url
-        $is_find_url = false;
+        $is_find_url = true;
         if ($link['url_type'] == 'scan_page') {
             if ($this->on_scan_page) {
                 $return = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
@@ -1676,13 +1687,16 @@ class PHPSpider
             }
         }
 
+        print_r($page);
+        exit;
+
         // on_scan_page、on_list_page、on_content_page
         // 返回false标识不需要再从此网页中发现待爬url
         if ($is_find_url) {
             // 如果深度没有超过最大深度,获取下一级url
             if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) {
                 // 分析提取HTML页面中的URL
-                $this->get_url($page['raw'], $url, $link['depth'] + 1);
+                $this->get_urls($page['raw'], $url, $link['depth'] + 1);
             }
         }
 
@@ -1731,7 +1745,7 @@ class PHPSpider
         }
         // 得到的编码如果不是utf-8的要转成utf-8,应为xpath只支持utf-8
         Requests::$output_encoding = "utf-8";
-        Requests::set_timeour(self::$configs['timeout']);
+        Requests::set_timeout(self::$configs['timeout']);
         Requests::set_useragent(self::$configs['user_agent']);
         if (self::$configs['client_ip']) {
             Requests::set_client_ip(self::$configs['client_ip']);
@@ -1750,17 +1764,17 @@ class PHPSpider
         }
 
         $method = empty($link['method']) ? 'get' : strtolower($link['method']);
-        $params = emtpy($link['params']) ? array() : $link['params'];
+        $params = empty($link['params']) ? array() : $link['params'];
         $html = Requests::$method($url, $params);
-        // 次url附加的数据不为空,比如内容页需要列表页一些数据,拼接到后面去
-        if ($html && !empty($link['content_data'])) {
-            $html .= $link['content_data'];
+        // 此url附加的数据不为空,比如内容页需要列表页一些数据,拼接到后面去
+        if ($html && !empty($link['context_data'])) {
+            $html .= $link['context_data'];
         }
 
         $http_code = Requests::$status_code;
 
         if ($this->on_status_code) {
-            $return call_user_func($this->on_status_code, $http_code, $url, $html, $this);
+            $return = call_user_func($this->on_status_code, $http_code, $url, $html, $this);
             if (isset($return)) {
                 $html = $return;
             }
@@ -1778,9 +1792,9 @@ class PHPSpider
                     Requests::$input_encoding = null;
                     $method = empty($link['method']) ? 'get' : strtolower($link['method']);
                     $params = empty($link['params']) ? array() : $link['params'];
-                    $html = Requests::$method($url, $params);
                     // 有跳转的就直接获取就好,不要调用自己,容易进入死循环
-                    // $html = $this->request_url($url, $link);
+                    $html = Requests::$method($url, $params);
+                    // $html = $this->request_url($url, $link); // 容易造成死循环
                     if ($html && !empty($link['context_data'])) {
                         $html .= $link['context_data'];
                     }
