@@ -15,7 +15,21 @@ interface ICallbackNamed
 namespace PHPSpider\Lib\Callback;
 
 /**
- * Callback
+ * Callback class introduces currying-like pattern.
+ *
+ * Example:
+ * function foo($param1, $param2, $param3)
+ * {
+ *     var_dump($param1, $param2, $param3);
+ * }
+ * $fooCurried = new Callback('foo', 'param1 is now statically set', new CallbackParam, new CallbackParam);
+ * phpQuery::callbackRun($fooCurried, array('param2 value', 'param3 value'));
+ * Callback class is supported in all phpQuery methods which accepts callbacks.
+ *
+ * @link http://code.google.com/p/phpquery/wiki/Callbacks#Param_Structures
+ * 
+ * @TODO??? return fake forwarding function created via create_function
+ * @TODO honor paramStructure
  */
 class Callback implements ICallbackName
 {

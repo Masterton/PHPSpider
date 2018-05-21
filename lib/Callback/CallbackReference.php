@@ -13,26 +13,13 @@ namespace PHPSpider\Lib\Callback;
  */
 class CallbackReference extends Callback implements ICallbackNamed
 {
-    protected $reference;
-
+    /**
+     * @param $reference
+     * @param $paramIndex
+     * @todo implement $paramIndex; param index choose which callback param will be passed to reference
+     */
     public function __construct(&$reference, $name = null)
     {
-    	$this->reference = &$reference;
-    	$this->callback = array($this, 'callback');
-    }
-
-    public function callback()
-    {
-    	return $this->reference;
-    }
-
-    public function getName()
-    {
-    	return 'Callback: ' . $this->name;
-    }
-
-    public function hasName()
-    {
-    	return isset($this->name) && $this->name;
+        $this->callback = &$reference;
     }
 }

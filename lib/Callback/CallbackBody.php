@@ -9,7 +9,7 @@
 namespace PHPSpider\Lib\Callback;
 
 /**
- * CallbackBody
+ * Shorthand for new Callback(create_function(...), ...);
  */
 class CallbackBody extends Callback
 {
