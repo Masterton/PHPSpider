@@ -91,4 +91,65 @@ abstract class QueryEvents
             }
         }
     }
+
+    /**
+     * Binds a handler to one or more events (like click) for each matched element.
+     * Can also bind custom events.
+     *
+     * @param DOMNode|phpQueryObject|string $document
+     * @param unknown_type $type
+     * @param unknown_type $data Optional
+     * @param unknown_type $callback
+     *
+     * @TODO support '!' (exclusive) events
+     * @TODO support more than event in $type (space-separated)
+     * @TODO support binding to global events
+     */
+    public static function add($document, $node, $type, $data, $callback = null)
+    {
+        Query::debug("Binding '$type' event");
+        $documentID = Query::getDocuemntID($document);
+        /*if (is_null($callback) && is_callable($data)) {
+            $callback = $data;
+            $data = null;
+        }*/
+        $eventNode = self::getNode($documentID, $node);
+        if (!$eventNode) {
+            $eventNode = self::getNode($documentID, $node);
+        }
+        if (isset($eventNode->eventHandlers[$type])) {
+            $eventNode->eventHandlers[$type] = array();
+        }
+        $eventNode->eventHandlers[$type] = array(
+            'callback' => $callback,
+            'data' => $data,
+        );
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param DOMNode|phpQueryObject|string $document
+     * @param unknown_type $type
+     * @param unknown_type $callback
+     *
+     * @TODO namespace events
+     * @TODO support more than event in $type (space-separated)
+     */
+    public static function remove($document, $node, $type = null, $callback = null)
+    {
+        $documentID = Query::getDocumentID($document);
+        $eventNode = self::getNode($documentID, $node);
+        if (is_object($eventNode) && isset($eventNode->eventHandlers[$type])) {
+            if ($callback) {
+                foreach ($eventNode->eventHandlers[$type] as $k => $handler) {
+                    if ($handler['callback'] == $callback) {
+                        unset($eventNode->eventHandlers[$type][$k]);
+                    }
+                }
+            } else {
+                unset($eventNode->eventHandlers[$type]);
+            }
+        }
+    }
 }
