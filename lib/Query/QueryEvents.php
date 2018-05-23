@@ -152,4 +152,24 @@ abstract class QueryEvents
             }
         }
     }
+
+    protected static function getNode($documentID, $node)
+    {
+        foreach (Query::$documents[$documentID]->eventNodes as $eventNode) {
+            if ($node->isSameNode($eventNode)) {
+                return $eventNode;
+            }
+        }
+    }
+
+    protected static setNode($documentID, $node)
+    {
+        Query::$documents[$documentID]->eventNodes[] = $node;
+        return Query::$documents[$documentID]->eventNodes[count(Query::$documents[$documentID]->eventsNodes)-1];
+    }
+
+    protected static function issetGlobal($documentID, $type)
+    {
+        return isset(Query::$documents[$documentID]) ? in_array($type, Query::$documents[$documentID]->eventsGlobal) : false;
+    }
 }
