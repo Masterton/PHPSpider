@@ -289,4 +289,240 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     {
         return Query::param($this->serializeArray());
     }
+
+    /**
+     * Enter description here...
+     *
+     * @link http://docs.jquery.com/Ajax/serializeArray
+     * @return array
+     */
+    public function serializeArray($submit = null)
+    {
+        $source = $this->filter('form, input, select, textarea')
+            ->find('input, select, textarea')
+            ->andSelf()
+            ->not('form');
+        $return = array();
+        // $source->dumpDie();
+        foreach ($source as $input) {
+            $input = Query::pq($input);
+            if ($input->is('[disabled]')) {
+                continue;
+            }
+            if (!$input->is(['name'])) {
+                continue;
+            }
+            if ($input->is('[type=checkbox]') && !$input->is('[checked]')) {
+                continue;
+            }
+            // jquery diff
+            if ($submit && $input->is('[type=submit]')) {
+                if ($submit instanceof DOMELEMENT && !$input->elements[0]->isSameNode($submit)) {
+                    continue;
+                } elseif (is_string($submit) && $input->attr('name') != $submit) {
+                    continue;
+                }
+                $return[] = array(
+                    'name' => $input->attr('name'),
+                    'value' => $input->val(),
+                );
+            }
+            return $return;
+        }
+
+        /**
+         * @access private
+         */
+        protected function debug($in)
+        {
+            if (!Query::$debug) {
+                return;
+            }
+            print_r("<pre>");
+            print_r($in);
+            // file debug
+            // file_put_contents(dirname(__FILE__).'/phpQuery.log', print_r($in, true)."\n", FILE_APPEND);
+            // quite handy debug trace
+            /*if (is_array($in)) {
+                print_r(array_slice(debug_backtrace(), 3));
+            }*/
+            print_r("</pre>\n");
+        }
+
+        /**
+         * @access private
+         */
+        protected function isRegexp($pattern)
+        {
+            return in_array(
+                $pattern[mb_strlen($pattern)-1],
+                array('^', '*', '$')
+            );
+        }
+
+        /**
+         * Determines if $char is really a char.
+         *
+         * @param string $char
+         * @return bool
+         * @todo rewrite me to charcode range ! ;)
+         * @access private
+         */
+        protected function isChar($char)
+        {
+            return extension_loaded('mbstring') && Query::$mbstringSupport ? mb_eregi('\w', $char) : preg_match('@\w@', $char);
+        }
+
+        /**
+         * @access private
+         */
+        protected function parseSelector($query)
+        {
+            // clean spaces
+            // TODO include this inside parsing ?
+            $query = trim(preg_replace('@\s+@', ' ', preg_replace('@\s*(>|\\+|~)\s*@', '\\1', $query)));
+            $queries = array(array());
+            if (!$query) {
+                return $queries;
+            }
+            $return = &$queries[0];
+            $specialChars = array('>', ' ');
+            // $specialCharsMapping = array('/' => '>');
+            $specialCharsMapping = array();
+            $strlen = mb_strlen($query);
+            $classChars = array('.', '-');
+            $pseudoChars = array('-');
+            $tagChars = array('*', '|', '-');
+            // split multibyte string
+            // http://code.google.com/p/phpquery/issues/detail?id=76
+            $_query = array();
+            for ($i = 0; $i < $strlen; $i++) {
+                $_query[] = mb_substr($query, $i, 1);
+            }
+            $query = $_query;
+            // it works, but i dont like it...
+            $i = 0;
+            while ($i < $strlen) {
+                $c = $query[$i];
+                $tem = '';
+                // TAG
+                if ($this->isChar($c) || in_array($c, $tagChars)) {
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || in_array($query[$i], $tagChars))) {
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    $return[] = $tem;
+                } elseif ($c == '#') { // IDs
+                    $i++;
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || $query[$i] == '-')) {
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    $return[] = '#' . $tem;
+                } elseif (in_array($c, $specialChars)) { // SPECIAL CHARS
+                    $return[] = $c;
+                    $i++;
+                // } elseif ($c.$query[$i+1] == '//') { // MAPPED SPECIAL MULTICHARS
+                //     $return[] = ' ';
+                //     $i = $i+2;
+                } elseif (isset($specialCharsMapping[$c])) { // MAPPED SPECIAL CHARS
+                    $return[] = $specialCharsMapping[$c];
+                    $i++;
+                } elseif ($c == ',') { // COMMA
+                    $queries[] = array();
+                    $return = &$queries[count($queries)-1];
+                    $i++;
+                    while (isset($query[$i]) && $query[$i] == ' ') {
+                        $i++;
+                    }
+                } elseif ($c == '.') { // CLASSES
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || in_array($query[$i], $classChars))) {
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    $return[] = $tem;
+                } elseif ($c == '~') { // ~ General Sibling Selector
+                    $spaceAllowed = true;
+                    $tem .= $query[$i++];
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || in_array($query[$i], $classChars) || $query[$i] == '*' || ($query[$i] == ' ' && $spaceAllowed))) {
+                        if ($query[$i] != ' ') {
+                            $spaceAllowed = false;
+                        }
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    $return[] = $tem;
+                } elseif ($c == '+') { // + Adjacent sibling selectors
+                    $spaceAllowed = true;
+                    $tem .= $query[$i++];
+                    while (isset($query[$i]) && ($this->isChar($query[$i) || in_array($query[$i], $classChars) || $query[$i] == '*' || ($spaceAllowed && $query[$i] == ' '))) {
+                        if ($query[$i] != ' ') {
+                            $spaceAllowed = false;
+                        }
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    $return[] = $tem;
+                } elseif ($c == '[') { // ATTRS
+                    $stack = 1;
+                    $tem .= $c;
+                    while (isset($query[++$i])) {
+                        $tem .= $query[$i];
+                        if ($query[$i] == '[') {
+                            $stack++;
+                        } elseif ($query[$i] == ']') {
+                            $stack--;
+                            if (!$stack) {
+                                break;
+                            }
+                        }
+                    }
+                    $return[] = $tem;
+                    $i++;
+                } elseif ($c == ':') { // PSEUDO CLASSES
+                    $stack = 1;
+                    $tem .= $query[$i++];
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || in_array($query[$i], $pseudoChars))) {
+                        $tem .= $query[$i];
+                        $i++;
+                    }
+                    // with arguments?
+                    if (isset($query[$i]) && $query[$i] == '(') {
+                        $tem = .= $query[$i];
+                        $stack = 1;
+                        while (isset($query[++$i])) {
+                            $tem .= $query[$i];
+                            if ($query[$i] == '(') {
+                                $stack++;
+                            } elseif ($query[$i] == ')') {
+                                $stack--;
+                                if (!$stack) {
+                                    break;
+                                }
+                            }
+                        }
+                        $return[] = $tem;
+                        $i++;
+                    } else {
+                        $return[] = $tem;
+                    }
+                } else {
+                    $return[] = $tem;
+                }
+            } else {
+                $i++;
+            }
+        }
+        foreach ($queries as $k => $q) {
+            if (isset($q[0])) {
+                if (isset($q[0][0]) && $q[0][0] == ':') {
+                    array_unshift($queries[$k], '*');
+                }
+                if ($q[0] != '>') {
+                    array_unshift($queries[$k], ' ');
+                }
+            }
+        }
+        return $queries;
+    }
 }
