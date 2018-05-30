@@ -455,7 +455,7 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
                 } elseif ($c == '+') { // + Adjacent sibling selectors
                     $spaceAllowed = true;
                     $tem .= $query[$i++];
-                    while (isset($query[$i]) && ($this->isChar($query[$i) || in_array($query[$i], $classChars) || $query[$i] == '*' || ($spaceAllowed && $query[$i] == ' '))) {
+                    while (isset($query[$i]) && ($this->isChar($query[$i]) || in_array($query[$i], $classChars) || $query[$i] == '*' || ($spaceAllowed && $query[$i] == ' '))) {
                         if ($query[$i] != ' ') {
                             $spaceAllowed = false;
                         }
@@ -507,22 +507,108 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
                         $return[] = $tem;
                     }
                 } else {
-                    $return[] = $tem;
+                    $i++;
                 }
+            }
+            foreach ($queries as $k => $q) {
+                if (isset($q[0])) {
+                    if (isset($q[0][0]) && $q[0][0] == ':') {
+                        array_unshift($queries[$k], '*');
+                    }
+                    if ($q[0] != '>') {
+                        array_unshift($queries[$k], ' ');
+                    }
+                }
+            }
+            return $queries;
+        }
+
+        /**
+         * Return matched DOM nodes.
+         *
+         * @param int $index
+         * @return array|DOMElement Single DOMElement or array of DOMElement.
+         */
+        public function get($index = null, $callback1 = null, $callback2 = null, $callback3 = null)
+        {
+            $return = isset($index) ? (isset($this->elements[$index]) ? $this->elements[$index] : null) : $this->elements;
+            // pass thou callbacks
+            $args = func_get_args();
+            $args = array_slice($args, 1);
+            foreach ($args as $callback) {
+                if (is_array($return)) {
+                    foreach ($return as $k => $v) {
+                        $return[$k] = Query::callbackRun($callback, array($v));
+                    }
+                } else {
+                    $return = Query::callbackRun($callback, array($return));
+                }
+            }
+            return $return;
+        }
+
+        /**
+         * Return matched DOM nodes.
+         * jQuery difference.
+         *
+         * @param int $index
+         * @return array|string Returns string if $index != null
+         * @todo implement callbacks
+         * @todo return only arrays ?
+         * @todo maybe other name...
+         */
+        public function getString($index = null, $callback1 = null, $callback2 = null, $callback3 = null)
+        {
+            if ($index) {
+                $return = $this->eq($index)->text();
             } else {
-                $i++;
-            }
-        }
-        foreach ($queries as $k => $q) {
-            if (isset($q[0])) {
-                if (isset($q[0][0]) && $q[0][0] == ':') {
-                    array_unshift($queries[$k], '*');
-                }
-                if ($q[0] != '>') {
-                    array_unshift($queries[$k], ' ');
+                $return = array();
+                for ($i = 0; $i < $this->size(); $i++) {
+                    $return[] = $this->eq($i)->text();
                 }
             }
+            // pass thou callbacks
+            $args = func_get_args();
+            $args = array_slice($args, 1);
+            foreach ($args as $callback) {
+                $return = Query::callbackRun($callback, array($return));
+            }
+            return $return;
         }
-        return $queries;
+
+        /**
+         * Return matched DOM nodes.
+         * jQuery difference.
+         *
+         * @param int $index
+         * @return array|string Returns string if $index != null
+         * @todo implement callbacks
+         * @todo return only arrays ?
+         * @todo maybe other name...
+         */
+        public function getStrings($index = null, $callback1 = null, $callback2 = null, $callback3 = null)
+        {
+            if ($index) {
+                $return $this->eq($index)->text();
+            } else {
+                $return = array();
+                for ($i = 0; $i < $this->size(); $i++) {
+                    $return[] = $this->eq($i)->text();
+                }
+                // pass thou callbacks
+                $args = func_get_args();
+                $args = array_slice($args, 1);
+            }
+            foreach ($args as $callback) {
+                if (is_array($return)) {
+                    foreach ($return as $k => $v) {
+                        $return[$k] = Query::callbackRun($callback, array($v));
+                    }
+                } else {
+                    $return Query::callbackRun($callback, array($return));
+                }
+            }
+            return $return;
+        }
     }
 }
