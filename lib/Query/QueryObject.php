@@ -738,4 +738,173 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         $this->elements = $stack;
     }
+
+    /**
+     * Enter description here...
+     *
+     * css to xpath
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function find($selectors, $context = null, $noHistory = false)
+    {
+        if (!$noHistory) {
+            // backup last stack /for end()/
+            $this->elementsBackup = $this->elements;
+        }
+        // allow to define context
+        // TODO combine code below with Query::pq() context guessing code as generic function
+        if ($context) {
+            if (!is_array($context) && $context instanceof DOMELEMENT) {
+                $this->elements = array($contents);
+            } elseif (is_array($context)) {
+                $this->elements = array();
+                foreach ($context as $c) {
+                    if ($c instanceof DOMELEMENT) {
+                        $this->elements[] = $c;
+                    }
+                }
+            } elseif ($context instanceof self) {
+                $this->elements = $context->elements;
+            }
+        }
+        $queries = $this->parseSelector($selectors);
+        $this->debug(array('FIND', $selectors, $queries));
+        $XQuery = '';
+        // remember stack state because of multi-queries
+        $oldStack = $this->elements;
+        // here we will be keeping found elements
+        $stack = array();
+        foreach ($queries as $selectors) {
+            $this->elements = $oldStack;
+            $delimiterBefore = false;
+            foreach ($selector as $s) {
+                // TAG
+                $isTag = extension_loaded('mbstring') && Query::$mbstringSupport ? mb_ereg_match('^[\w|\||-]+$', $s) || $s == '*' : preg_match('@^[\w|\||-]+$@', $s) || $s == '*';
+                if ($isTag) {
+                    if ($this->isXML()) {
+                        // namespace support
+                        if (mb_strpos($s, '|') !== false) {
+                            $ns = $tag = null;
+                            list($ns, $tag) = explode('|', $s);
+                            $XQuery .= "$ns:$tag";
+                        } elseif ($s == '*') {
+                            $XQuery .= "*";
+                        } else {
+                            $XQuery .= "*[local-name()='$s']";
+                        }
+                    } else {
+                        $XQuery .= $s;
+                    }
+                } elseif ($s[0] == '#') { // ID
+                    if ($delimiterBefore) {
+                        $XQuery .= '*';
+                    }
+                    $XQuery .= "[@id='" . substr($s, 1) . "']";
+                } elseif ($s[0] == '[') { // ATTRIBUTES
+                    if ($delimiterBefore) {
+                        $XQuery .= '*';
+                    }
+                    // strip side brackets
+                    $attr = trim($s, '][');
+                    $execute = false;
+                    // attr with specifed value
+                    if (mb_strpos($s, '=')) {
+                        $value = null;
+                        list($attr, $value) = explode('=', $attr);
+                        $value = trim($value, "'\"");
+                        if ($this->isRegexp($attr)) {
+                            // cut regexp character
+                            $attr = substr($attr, 0, -1);
+                            $execute = true;
+                            $XQuery .= "[@{$attr}]";
+                        } else {
+                            $XQuery .= "[@{$attr}='{$value}']";
+                        }
+                    } else { // attr without specified value
+                        $XQuery .= "[@{$attr}]";
+                    }
+                    if ($execute) {
+                        $this->runQuery($XQuery, $s, 'is');
+                        $XQuery = '';
+                        if (!$this->length()) {
+                            break;
+                        }
+                    }
+                } elseif ($s[0] == '.') { // CLASSES
+                    // TODO use return $this->find("./self::*[contains(concat(\" \",@class,\" \"), \" $class \")]");
+                    // thx wizDom ;)
+                    if ($delimiterBefore) {
+                        $XQuery .= '*';
+                    }
+                    $XQuery .= '[@class]';
+                    $this->runQuery($XQuery, $s, 'matchClasses');
+                    $XQuery = '';
+                    if (!$this->length()) {
+                        break;
+                    }
+                } elseif ($s[0] == '~') { // ~ General Sibling Selector
+                    $this->runQuery($XQuery);
+                    $XQuery = '';
+                    $this->elements = $this->siblings(substr($s, 1))->elements;
+                    if (!$this->length()) {
+                        break;
+                    }
+                } elseif ($s[0] == '+') { // + Adjacent silbing selectors
+                    // TODO /following-sibling::
+                    $this->runQuery($XQuery);
+                    $XQuery = '';
+                    $subSelector = substr($s, 1);
+                    $subElements = $this->elements;
+                    $this->elements = array();
+                    foreach ($subElements as $node) {
+                        // search first DOMElement sibling
+                        $test = $node->nextSibling;
+                        while ($test && ($test instanceof DOMELEMENT)) {
+                            $test = $test->nextSibling;
+                        }
+                        if ($test && $this->is($subSelector, $test)) {
+                            $this->elements[] = $test;
+                        }
+                    }
+                    if (!$this->length()) {
+                        break;
+                    }
+                } elseif ($s[0] == ':') { // PSEUDO CLASSES
+                    // TODO optimization for :first :last
+                    if ($XQuery) {
+                        $this->runQuery($XQuery);
+                        $XQuery = '';
+                    }
+                    if (!$this->length()) {
+                        break;
+                    }
+                    $this->pseudoClasses($s);
+                    if (!$this->length()) {
+                        break;
+                    }
+                } elseif ($s == '>') { // DIRECT DESCENDANDS
+                    $XQuery .= '/';
+                    $delimiterBefore = 2;
+                } elseif ($s == ' ') { // ALL DESCENDANDS
+                    $XQuery .= '//';
+                    $delimiterBefore = 4;
+                } else { // ERRORS
+                    Query::debug("Unrecognized token '$s'");
+                }
+                $delimiterBefore = $delimiterBefore === 2;
+            }
+            // run query if any
+            if ($XQuery && $XQuery != '//') {
+                $this->runQuery($XQuery);
+                $XQuery = '';
+            }
+            foreach ($this->elements as $node) {
+                if (!$this->elementsContainsNode($node, $stack)) {
+                    $stack[] = $node;
+                }
+            }
+        }
+        $this->elements = $stack;
+        return $this->newInstance();
+    }
 }
