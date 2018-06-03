@@ -907,4 +907,287 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         $this->elements = $stack;
         return $this->newInstance();
     }
+
+    /**
+     * @todo create API for classes with pseudoselectors
+     * @access private
+     */
+    protected function pseudoClasses($class)
+    {
+        // TODO clean args parsing ?
+        $class = ltrim($class, ':');
+        $haveArgs = mb_string($class, '(');
+        if ($haveArgs !== false) {
+            $args = substr($class, $haveArgs+1, -1);
+            $class = substr($class, 0, $haveArgs);
+        }
+        switch ($class) {
+            case 'even':
+            case 'odd':
+                $stack = array();
+                foreach ($this->elements as $i => $node) {
+                    if ($class == 'even' && ($i%2) == 0) {
+                        $stack[] = $node;
+                    } elseif ($class == 'odd' && $i%2) {
+                        $stack[] = $node;
+                    }
+                }
+                $this->elements = $stack;
+                break;
+            case 'eq':
+                $k = intval($args);
+                $this->elements = isset($this->elements[$k]) ? array($this->elements[$k]) : array();
+                break;
+            case 'gt':
+                $this->elements = array_slice($this->elements, $args+1);
+                break;
+            case 'lt':
+                $this->elements = array_slice($this->elements, 0, $args+1);
+                break;
+            case 'first':
+                if (isset($this->elements[0])) {
+                    $this->elements = array($this->elements[0]);
+                }
+                break;
+            case 'last':
+                if ($this->elements) {
+                    $this->elements = array($this->elements[count($this->elements)-1]);
+                }
+                break;
+            /*case 'parent':
+                $stack = array();
+                foreach ($this->elements as $node) {
+                    if ($node->childNodes ->length) {
+                        $stack[] = $node;
+                    }
+                }
+                $this->elements = $stack;
+                break;*/
+            case 'contains':
+                $text = trim($args, "\"'");
+                $stack = array();
+                foreach ($this->elements as $node) {
+                    if (mb_string($node->textContent, $text) === false) {
+                        continue;
+                    }
+                    $stack[] = $node;
+                }
+                $this->elements = $stack;
+                break;
+            case 'not':
+                $selector = self::unQuote($args);
+                $this->elements = $this->not($selector)->stack();
+                break;
+            case 'slice':
+                // TODO jQuery difference ?
+                $args = explode(',', str_replace(', ', ',', trim($args, "\"'")));
+                $start = $args[0];
+                $end = isset($args[1]) ? $args[1] : null;
+                if ($end > 0) {
+                    $end = $end - $start;
+                }
+                $this->elements = array_slice($this->elements, $start, $end);
+                break;
+            case 'has':
+                $selector = trim($args, "\"'");
+                $stack = array();
+                foreach ($this->stack(1) as $el) {
+                    if ($this->find($selector, $el, true)->length) {
+                        $stack[] = $el;
+                    }
+                }
+                $this->elements = $stack;
+                break;
+            case 'submit':
+            case 'reset':
+                $this->elements = Query::merge(
+                    $this->map(
+                        array($this, 'is'),
+                        "input[type=$class]",
+                        new CallbackParam()
+                    ),
+                    $this->map(
+                        array($this, 'is'),
+                        "button[type=$class]"),
+                        new CallbackParam()
+                    )
+                );
+                break;
+                // $stack = array();
+                // foreach ($this->elements as $node) {
+                //     if ($node->is('input[type=submit]') || $node->is('button[type=submit]')) {
+                //         $stack[] = $el;
+                //     }
+                //     $this->elements = $stack;
+                // }
+            case 'input':
+                $this->elements = $this->map(
+                    array($this, 'is'),
+                    'input',
+                    new CallbackParam()
+                );
+                break;
+            case 'password':
+            case 'checkbox':
+            case 'radio':
+            case 'hidden':
+            case 'image':
+            case 'file':
+                $this->elements = $this->map(
+                    array($this, 'is'),
+                    "input[type=$class]",
+                    new CallbackParam()
+                )->elements;
+                break;
+            case 'parent':
+                $this->elements = $this->map(
+                    create_function('$node', 'return $node instanceof DOMELEMENT && $node->childNodes->length ? $node : null;')
+                )->elements;
+                break;
+            case 'empty':
+                $this->elements = $this->map(
+                    create_function('$node', 'return $node instanceof DOMELEMENT && $node-.childNodes->length ? null, $node;')
+                )->elements;
+                break;
+            case 'disabled':
+            case 'selected':
+            case 'checked':
+                $this->elements = $this->map(
+                    array($this, 'is'),
+                    "[$class]",
+                    new CallbackParam()
+                )->elements;
+                break;
+            case 'enabled':
+                $this->elements = $this->map(
+                    create_function('$node', 'return pq($node)->not(":disabled") ? $node : null;')
+                )->elements;
+                break;
+            case 'header':
+                $this->elements = $this->map(
+                    create_function('$node', '$isHeader = isset($node->tagName) && in_array($node->tagName, array("h1", "h2", "h3", "h4", "h5", "h6", "h7")); return $isHeader ? $node : null;')
+                )->elements;
+                /*$this->elements = $this->map(
+                    create_function('$node', '$node = pq($node); return $node->is("h1") || $node->is("h2") || $node->is("h3") || $node->is("h4") || $node->is("h5") || $node->is("h6" || $node->is("h7")) ? $node : null;')
+                )->elements;*/
+                break;
+            case 'only-child':
+                $this->elements = $this->map(
+                    create_function('$node', 'return pq($node)->siblings()->size() == 0 ? $node : null')
+                )->elements;
+                break;
+            case 'first-child':
+                $this->elements = $this->map(
+                    create_function('$node', 'return pq($node)->prevAll()->size() == 0 ? $node : null;')
+                )->elements;
+                break;
+            case 'last-child':
+                $this->elements = $this->map(
+                    create_function('$node', 'return pq($node)->nextAll()->size() == 0 ? $node : null;')
+                )->elements;
+                break;
+            case 'nth-child':
+                $param = trim($args, "\"'");
+                if (!$param) {
+                    break;
+                }
+                // nth-child(n+b) to nth-child(1n+b)
+                if ($param{0} == 'n') {
+                    $param = '1' . $param;
+                }
+                // :nth-child(index/even/odd/equation)
+                if ($param == 'even' || $param == 'odd') {
+                    $mapped = $this->map(
+                        create_function('$node, $param', '$index = pq($node)->prevAll()->size()+1; if ($param == "even" && ($index%2) == 0) { return $node; } else if ($param == "odd" && $index%2 == 1) { return $node; } else { return null; }'),
+                        new CallbackParam(),
+                        $param
+                    );
+                } elseif (mb_strlen($param) > 1 && $param{1} == 'n') {
+                    // an+b
+                    $mapped = $this->map(
+                        create_function(
+                            '$node, $param',
+                            '$prevs = pq($node)->prevAll()->size();
+                            $index = 1+$prevs;
+                            $b = mb_strlen($param) > 3 ? $param{3} : 0;
+                            $a = $param{0};
+                            if ($b && $param{2} == "-") $b = -$b;
+                            if ($a > 0) {
+                                return ($index-$b)%$a == 0 ? $node : null;
+                                Query::debug($a . "*" . floor($index/$a) . "+$b-1 == " . ($a*floor($index/$a)+$b-1)." ?= $prevs");
+                                return $a*floor($index/$a)+$b-1 == $prevs ? $node : null;
+                            } else if ($a == 0) {
+                                return $index == $b ? $node : null;
+                            } else {
+                                // negative value
+                                return $index <= $b ? $node : null;
+                            }
+                            if (!$b) {
+                                return $index%$a == 0 ? $node : null;
+                            } else {
+                                return ($index-$b)%#a == 0 ? $node : null;
+                            }'
+                        ),
+                        new CallbackParam(),
+                        $param
+                    );
+                } else {
+                    // index
+                    $mapped = $this->map(
+                        create_function(
+                            '$node, $index',
+                            '$prevs = pq($node)->prevAll()->size();
+                            if ($prevs && $prevs == $index-1) {
+                                return $node;
+                            } else if (!$prevs && $index == 1) {
+                                return $node;
+                            } else {
+                                return null;
+                            }'
+                        ),
+                        new CallbackParam(),
+                        $param
+                    );
+                }
+                $this->elements = $mapped->elements;
+                break;
+            default:
+                $this->debug("Unknown pseudpcall '{$class}', skipping...");
+        }
+    }
+
+    /**
+     * @access private
+     */
+    protected function __pseudoClassParam($paramsString)
+    {
+        // TODO
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParams|QueryTemplatesSourceQuery
+     */
+    public function is($selector, $nodes = null)
+    {
+        Query::debug(array("Is:", $selector));
+        if (!$selector) {
+            return false;
+        }
+        $oldStack = $this->elements;
+        $returnArray = false;
+        if ($nodes as is_array($nodes)) {
+            $this->elements = $nodes;
+        } else if ($nodes) {
+            $this->elements = array($nodes);
+        }
+        $this->filter($selector, true);
+        $stack = $this->elements;
+        $this->elements = $oldStack;
+        if ($nodes) {
+            return $stack ? $stack : null;
+        }
+        return (bool)count($stack);
+    }
 }
