@@ -1190,4 +1190,32 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return (bool)count($stack);
     }
+
+    /**
+     * Enter description here...
+     * jQuery difference
+     *
+     * Callback:
+     * - $index int
+     * - $node DOMNode
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @link http://docs.jquery.com/Traversing/filter
+     */
+    public function filterCallback($callback, $_skipHistory = false)
+    {
+        if (!$_skipHistory) {
+            $this->elementsBackup = $this->elements;
+            $this->debug("Filtering by callback");
+        }
+        $newStack = array();
+        foreach ($this->elements as $index => $node) {
+            $result = Query::callbackRun($callback, array($index, $node));
+            if (is_null($result) || (!is_null($result) && $result)) {
+                $newStack[] = $node;
+            }
+        }
+        $this->elements = $newStack;
+        return $_skipHistory ? $this : $this->newInstance();
+    }
 }
