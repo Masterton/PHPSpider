@@ -1218,4 +1218,153 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         $this->elements = $newStack;
         return $_skipHistory ? $this : $this->newInstance();
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @link http://docs.jquery.com/Traversing/filter
+     */
+    public function filter($selectors, $_skipHistory = fasle)
+    {
+        if ($selectors instanceof Callback OR $selectors instanceof Closure) {
+            return $this->filterCallback($selectors, $_skipHistory);
+        }
+        if (!$_skipHistory) {
+            $this->elementsBackup = $this->elements;
+        }
+        $notSimpleSelector = array(' ', '>', '~', '+', '/');
+        if (!is_array($selectors)) {
+            $selectors = $this->parseSelector($selectors);
+        }
+        if (!$_skipHistory) {
+            $this->debug(array("Filtering:", $selectors));
+        }
+        $finalStack = array();
+        foreach ($selectors as $selector) {
+            $stack = array();
+            if (!$selector) {
+                break;
+            }
+            // avoid first space or /
+            if (in_array($selector[0], $notSimpleSelector)) {
+                $selector = array_slice($selector, 1);
+            }
+            // PER NODE selector chunks
+            foreach ($this->stack() as $node) {
+                $break = false;
+                foreach ($selector as $s) {
+                    if (!($node instanceof DOMDOCUMENT)) {
+                        // all besides DOMElement
+                        if ($s[0] == '[') {
+                            $attr = trim($s, '[]');
+                            if (mb_strpos($attr, '=')) {
+                                list($attr, $val) = explode('=', $attr);
+                                if ($attr == 'nodeType' && $node->nodeType !=$val) {
+                                    $break = true;
+                                }
+                            }
+                        } else {
+                            $break = true;
+                        }
+                    } else {
+                        // DOMElement only
+                        // ID
+                        if ($s[0] == '#') {
+                            if ($node->getAttribute('id') != substr($s, 1)) {
+                                $break = true;
+                            }
+                        } elseif ($s[0] == '.') { // CLASS
+                            if (!$this->matchClasses($s, $node)) {
+                                $break = true;
+                            }
+                        } elseif ($s[0] == '[') { // ATTRS
+                            // strip side brackets
+                            $attr = trim($s, '[]');
+                            if (mb_strpos($attr, '=')) {
+                                list($attr, $val) = explode('=', $attr);
+                                $val = self::unQuote($val);
+                                if ($attr == 'nodeType') {
+                                    if ($val != $node->nodeType) {
+                                        $break = true;
+                                    }
+                                } elseif ($this->isRegexp($attr)) {
+                                    $val = extension_loaded('mbstring') && Query::$mbstringSupport ? quotemeta(trim($val, '"\'')) : preg_quote(trim($val, '"\''), '@');
+                                    // switch last character
+                                    switch (substr($attr, -1)) {
+                                        // quotemeta used insted of preg_quote
+                                        // http://code.google.com/p/phpquery/issues/detail?id=76
+                                        case '^':
+                                            $pattern = '^' . $val;
+                                            break;
+                                        case '*':
+                                            $pattern = '.*' . $val . '.*';
+                                            break;
+                                        case '$':
+                                            $pattern = '.*' . $val . '$';
+                                            break;
+                                    }
+                                    // cut last character
+                                    $attr = substr($attr, 0, -1);
+                                    $isMatch = extension_loaded('mbstring') && Query::$mbstringSupport ? mb_ereg_match($pattern, $node->getAttribute($attr)) : preg_match("@{$pattern}@", $node->getAttribute($attr));
+                                    if (!$isMatch) {
+                                        $break = true;
+                                    }
+                                } elseif ($node->getAttribute($attr) != $val) {
+                                    $break = true;
+                                }
+                            } elseif (!$node->hasAttribute($attr)) {
+                                $break = true;
+                            }
+                        } elseif ($s == ':') { // PSEUDO CLASSES
+                            // skip
+                        } elseif (trim($s)) { // TAG
+                            if ($s != '*') {
+                                // TODO namespaces
+                                if (isset($node->tagName)) {
+                                    if ($node->tagName != $s) {
+                                        $break = true;
+                                    }
+                                } elseif ($s == 'html' && !$this->isRoot($node)) {
+                                    $break = true;
+                                }
+                            }
+                        } elseif (in_array($s, $notSimpleSelector)) {
+                            $break = true;
+                            $this->debug(array('Skipping non simple selector', $selector));
+                        }
+                    }
+                    if ($break) {
+                        break;
+                    }
+                }
+                // if element passed all chunks of selector - add it to new stack
+                if (!$break) {
+                    $stack[] = $node;
+                }
+            }
+            $tmpStack = $this->elements;
+            $this->elements = $stack;
+            // PER ALL NODES selector chunks
+            foreach ($selector as $s) {
+                // PSEUDO CLASSES
+                if ($s[0] == ':') {
+                    $this->pseudoClasses($s);
+                }
+            }
+            foreach ($this->elements as $node) {
+                // XXX it should be merged without duplicates
+                // but jQuery doesnt do that
+                $finalStack[] = $node;
+            }
+            $this->elements = $tmpStack;
+        }
+        $this->elements = $finalStack;
+        if ($_skipHistory) {
+            return $this;
+        } else {
+            $this->debug("Stack length after filter(): " . count($finalStack));
+            return $this->newInstance();
+        }
+    }
 }
