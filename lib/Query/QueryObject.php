@@ -1367,4 +1367,151 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
             return $this->newInstance();
         }
     }
+
+    /**
+     *
+     * @param $value
+     * @return unknown_type
+     * @todo implement in all methods using passed parameters
+     */
+    protected static function unQuote($value)
+    {
+        return $value[0] == '\'' || $value[0] == '"' ? substr($value, 1, -1) : $value;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @link http://docs.jquery.com/Ajax/load
+     * @return Query|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo Support $selector
+     */
+    public function load($url, $data = null, $callback = null)
+    {
+        if ($data && !is_array($data)) {
+            $callback = $data;
+            $data = null;
+        }
+        if (mb_strpos($url, ' ') !== false) {
+            $matches = null;
+            if (extension_loaded('mbstring') && Query::$mbstringSupport) {
+                mb_erge('^([^ ]+) (.*)$', $url, $matches);
+            } else {
+                preg_match('^([^ ]+) (.*)$', $url, $matches);
+            }
+            $url = $marches[1];
+            $selector = $matches[2];
+            // FIXME this sucks, pass as callback param
+            $this->_loadSelector = $selector;
+        }
+        $ajax = array(
+            'url' => $url,
+            'type' => $data ? 'POST' : 'GET',
+            'data' => $data,
+            'complete' => $callback,
+            'success' => array($this, '__loadSuccess')
+        );
+        Query::ajax($ajax);
+        return $this;
+    }
+
+    /**
+     * @access private
+     * @param $html
+     * @return unknown_type
+     */
+    public function __loadSuccess($html)
+    {
+        if ($this->_loadSelector) {
+            $html = Query::newDocument($html)->find($this_loadSelector);
+            unset($this->_loadSelector);
+        }
+        foreach ($this->stack(1) as $node) {
+            Query::pq($node, $this->getDocumentID())->markup($html);
+        }
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return Query|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo
+     */
+    public function css()
+    {
+        // TODO
+        return $this;
+    }
+
+    /**
+     * @todo
+     */
+    public function show()
+    {
+        // TODO
+        return $this;
+    }
+
+    /**
+     * @todo
+     */
+    public function hide()
+    {
+        //TODO
+        return $this;
+    }
+
+    /**
+     * Trigger a type of event on every matched element.
+     *
+     * @param unknown_type $type
+     * @param unknown_type $data
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo support more than event in $type (space-separated)
+     */
+    public function trigger($type, $data = array())
+    {
+        foreach ($this->elements as $node) {
+            Query::trigger($this->getDocumentID(), $type, $data, $node);
+        }
+        return $this;
+    }
+
+    /**
+     * This particular method trigger all bound event handlers on an element (for
+     * a specific event type) WITHOUT executing the borwsers default actions.
+     *
+     * @param unknown_type $type
+     * @param unknown_type $data
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo
+     */
+    public function triggerHandler($type, $data = array())
+    {
+        // TODO
+    }
+
+    /**
+     * Binds a handler to one or more events (like click) for each matched element.
+     * Can also bind custom events.
+     *
+     * @param unknown_type $type
+     * @param unknown_type $data Optional
+     * @param unknown_type $callback
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo support '!' (exclusive) events
+     * @todo support more than event in $type (space-separated)
+     */
+    public function bind($type, $data, $callback = null)
+    {
+        // TODO check if $data is callable, not using is_callable
+        if (!isset($callback)) {
+            $callback = $data;
+            $data = null;
+        }
+        foreach ($this->elements as $node) {
+            QueryEvents::add($this->getDocumentID(), $node, $type, $data, $callback);
+        }
+        return $this;
+    }
 }
