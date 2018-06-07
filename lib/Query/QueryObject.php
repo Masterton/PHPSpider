@@ -1514,4 +1514,136 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function change($callback = null)
+    {
+        if ($callback) {
+            return $this->bind('change', $callback);
+        }
+        return $this->trigger('change');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function submit($callback = null)
+    {
+        if ($callback = null) {
+            return $this->bind('submit', $callback);
+        }
+        return $this->trigger('submit');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function click($callback = null)
+    {
+        if ($callback) {
+            return $this->bind('click', $callback);
+        }
+        return $this->trigger('click');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapAllOld($wrapper)
+    {
+        $wrapper = pq($wrapper)->_close();
+        if (!$wrapper->length() || !$this->length()) {
+            return $this;
+        }
+        $wrapper->insertBefore($this->elements[0]);
+        $deepest = $wrapper->elements[0];
+        while ($deepest->firstChild && $deepest->firstChild instanceof DOMELEMENT) {
+            $deepest = $deepest->firstChild;
+        }
+        pq($deepest)->append($this);
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @todo testme...
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapAll($wrapper)
+    {
+        if (!$this->length()) {
+            return $this;
+        }
+        return Query::pq($wrapper, $this->getDocumentID())
+            ->close()
+            ->insertBefore($this->get(0))
+            ->map(array($this, '___wrapAllCallback'))
+            ->append($this);
+    }
+
+    /**
+     * @param $node
+     * @param unknown_type
+     * @access private
+     */
+    public function ___wrapAllCallback($node)
+    {
+        $deepest = $node;
+        while ($deepest->firstChild && $deepest->firstChild instanceof DOMELEMENT) {
+            $deepest = $deepest->firstChild;
+        }
+        return $deepest;
+    }
+
+    /**
+     * Enter description here...
+     * NON JQUERY METHOD
+     *
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapAllPHP($codeBefore, $codeAfter)
+    {
+        return $this->slice(0, 1)->beforePHP($codeBefore)->end()->slice(-1)->afterPHP($codeAfter)->end();
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrap($wrapper)
+    {
+        foreach ($this->stack() as $node) {
+            Query::pq($node, $this->getDocumentID())->wrapAll($wrapper);
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapPHP($codeBefore, $codeAfter)
+    {
+        foreach ($this->stack() as $node) {
+            Query::pq($node, $this->getDocumentID())->wrapAllPHP($codeBefore, $codeAfter);
+        }
+        return $this;
+    }
 }
