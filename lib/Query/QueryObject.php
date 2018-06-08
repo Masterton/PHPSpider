@@ -1646,4 +1646,91 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapInner($wrapper)
+    {
+        foreach ($this->stack() as $node) {
+            Query::pq($node, $this->getDocumentID())->contents()->wrapAll($wrapper);
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param String|Query
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function wrapInnerPHP($codeBefore, $codeAfter) {
+        foreach ($this->stack(1) as $node) {
+            Query::pq($node, $this->getDocumentID())->contents()->wrapAllPHP($codeBefore, $codeAfter);
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @testme Support for text nodes
+     */
+    public function contents() {
+        $stack = array();
+        foreach ($this->stack(1) as $el) {
+            // FIXME (fixed) http://code.google.com/p/phpquery/issues/detail?id=56
+            /*if (!isset($el->childNodes)) {
+                continue;
+            }*/
+            foreach ($el->childNodes as $node) {
+                $stack[] = $node;
+            }
+        }
+        return $this->newInstance($stack);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * jQuery difference
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function contentsUnwrap() {
+        foreach ($this->stack(1) as $node) {
+            if (!$node->parentNode) {
+                continue;
+            }
+            $childNodes = array();
+            // any modification in DOM tree breaks childNodes iteration, so cache them first
+            foreach ($node->childNodes as $chNode) {
+                $childNodes[] = $chNode;
+            }
+            foreach ($childNodes as $chNode) {
+                // $node->parentNode->appendChild($chNode);
+                $node->parentNode->insertBefore($chNode, $node);
+            }
+            $node->parentNode->removeChild($node);
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * jQuery difference.
+     */
+    public function switchWith($markup) {
+        $markup = pq($markup, $this->getDocumentID());
+        $content = null;
+        foreach ($this->stack(1) as $node) {
+            pq($node)->contents()->toReference($content)->end()->replaceWith($markup->close()->append($content));
+        }
+        return $this;
+    }
 }
