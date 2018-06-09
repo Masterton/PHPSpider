@@ -1733,4 +1733,19 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function eq($num) {
+        $oldStack = $this->elements;
+        $this->elementsBackup = $this->elements;
+        $this->elements = array();
+        if (isset($oldStack[$num])) {
+            $this->elements[] = $oldStack[$num];
+        }
+        return $this->newInstance();
+    }
 }
