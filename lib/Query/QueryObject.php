@@ -1748,4 +1748,29 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this->newInstance();
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function size()
+    {
+        return count($this->elements);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @deprecated Use length as attribute
+     */
+    function length()
+    {
+        return $this->size();
+    }
+    public function count()
+    {
+        return $this->size();
+    }
 }
