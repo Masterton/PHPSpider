@@ -1773,4 +1773,181 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     {
         return $this->size();
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo $level
+     */
+    public function end($level = 1)
+    {
+        // $this->elements = array_pop($this->histor);
+        // return $this;
+        // $this->previous->DOM = $this->DOM;
+        // $this->previous->XPath = $this->XPath;
+        return $this->previous ? $this->previous : $this;
+    }
+
+    /**
+     * Enter description here...
+     * Normal use ->clone() .
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @access private
+     */
+    public function _close()
+    {
+        $newStack = array();
+        // pr(array('copy...', $this->whois()));
+        // $this->dumpHistory('copy');
+        $this->elementsBackup = $this->elements;
+        foreach ($this->elements as $node) {
+            $newStack[] = $node->cloneNode(true);
+        }
+        $this->elements = $newStack;
+        return $this->newInstance();
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function replaceWithPHP($code)
+    {
+        return $this->replaceWith(Query::php($code));
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param String|Query $content
+     * @link http://docs.jquery.com/Manipulation/replaceWith#content
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function replaceWith($content)
+    {
+        return $this->after($content)->remove();
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param String $selector
+     * @return http://docs.jquery.com/Manipulation/replaceWith#content
+     * @todo this works ?
+     */
+    public function replaceAll($selector)
+    {
+        foreach (Query::pq($selector, $this->getDocumentID()) as $node) {
+            Query::pq($node, $this->getDocuemntID())->after($this->_clone())->remove();
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return http://docs.jquery.com/Manipulation/replaceWith#content
+     */
+    public function remove($selector = null)
+    {
+        $loop = $selector ? $this->filter($selector)->elements : $this->elements;
+        foreach ($loop as $node) {
+            if (!$node->parentNode) {
+                continue;
+            }
+            if (isset($node->tagName)) {
+                $this->debug("Removing '{$node->tagName}'");
+            }
+            $node->parentNode->removeChild($node);
+            // mutation event
+            $event = new DOMEvent(array('target' => $node, 'type' => 'DOMNodeRemoved'));
+            QueryEvents::trigger($this->getDocumentID(), $event->type, array($event), $node);
+        }
+        return $this;
+    }
+
+    /**
+     * markupEvents
+     */
+    protected function markupEvents($newMarkup, $oldMarkup, $node)
+    {
+        if ($node->tagName == 'textarea' && $newMarkup != $oldMarkup) {
+            $event = new DOMEvent(array('target' => $node, 'type' => 'change'));
+            QueryEvents::trigger($this->getDocumentID(), $event->type, array($event), $node);
+        }
+    }
+
+    /**
+     * jQuery difference
+     *
+     * @param $markup
+     * @return unknown_type
+     * @todo trigger change event for textarea
+     */
+    public function markup($markup = null, $callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        $args = func_get_args();
+        if ($this->documentWrapper->isXML) {
+            return call_user_func_array(array($this, 'xml'), $args);
+        } else {
+            return call_user_func_array(array($this, 'html'), $args);
+        }
+    }
+
+    /**
+     * jQuery difference
+     *
+     * @param $markup
+     * @return unknown_type
+     */
+    public function markupOther($callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        $args = func_get_args();
+        if ($this->documentWrapper->isXML) {
+            return call_user_func_array(array($this, 'xmlOuter'), $args);
+        } else {
+            return call_user_func_array(array($this, 'htmlOuter'), $args);
+        }
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param unknown_type $html
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo force html result
+     */
+    public function html($html = null, $callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        if (isset($html)) {
+            // INSERT
+            $nodes = $this->documentWrapper->import($html);
+            $this->empty();
+            foreach ($this->stach(1) as $alreadyAdded => $node) {
+                // for now, limit events for textarea
+                if (($this->isXHTML() || $this->isHTML()) && $node->tagName == 'textarea') {
+                    $oldHtml = pq($node, $this->getDocumentID())->markup();
+                }
+                foreach ($nodes as $newNode) {
+                    $node->appendChild($alreadyAdded ? $newNode->cloneNode(true) : $newNode);
+                }
+                // for now, limit events for textarea
+                if (($this->isXHTML() || $this->isHTML()) && $node->tagName == 'textarea') {
+                    $this->markupEvents($html, $oldHtml, $node);
+                }
+            }
+            return $this;
+        } else {
+            // FETCH
+            $return = $this->documentWrapper->markup($this->elements, true);
+            $args = func_get_args();
+            foreach (array_slice($args, 1) as $callback) {
+                $return = Query::callbackRun($callback, array($return));
+            }
+            return $return;
+        }
+    }
 }
