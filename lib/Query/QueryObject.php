@@ -1950,4 +1950,168 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
             return $return;
         }
     }
+
+    /**
+     * @todo force xml result
+     */
+    public function xml($xml = null, $callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        $args = func_get_args();
+        return call_user_func_array(array($this, 'html'), $args);
+    }
+
+    /**
+     * Enter description here...
+     * @todo force html result
+     *
+     * @return String
+     */
+    public function htmlOuter($callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        $markup = $this->documentWrapper->markup($this->elements);
+        // pass thou callbacks
+        $args = func_get_args();
+        foreach ($args as $callback) {
+            $markup = Query::callbackRun($callback, array($markup));
+        }
+        return $markup;
+    }
+
+    /**
+     * @todo force xml result
+     */
+    public function xmlOuter($callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        $args = func_get_args();
+        return call_user_func_array(array($this, 'htmlOuter'), $args);
+    }
+
+    /**
+     * __toString
+     */
+    public function __toString()
+    {
+        return $this->markupOuter();
+    }
+
+    /**
+     * Just like html(), but returns markup with VALID (dangerous) PHP tags.
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo support returning markup with PHP tags when called without param
+     */
+    public function php($code = null)
+    {
+        return $this->markupPHP($code);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param $code
+     * @return unknown_type
+     */
+    public function markupPHP($code = null)
+    {
+        return isset($code) ? $this->markup(Query::php($code)) : Query::markupToPHP($this->markup());
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param $code
+     * @return unknown_type
+     */
+    public function markupOuterPHP()
+    {
+        return Query::markupToPHP($this->markupOuter());
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function children($selector = null)
+    {
+        $stack = array();
+        foreach ($this->stack(1) as $node) {
+            // foreach ($node->getElementsByTagName('*') as $newNode) {
+            foreach ($node->childNodes as $newNode) {
+                if ($newNode->nodeType != 1) {
+                    continue;
+                }
+                if ($selector && !$this->is($selector, $newNode)) {
+                    continue;
+                }
+                if ($this->elementsContainsNode($newNode, $stack)) {
+                    continue;
+                }
+                $stack[] = $newNode;
+            }
+        }
+        $this->elementsBackup = $this->elements;
+        $this->elements = $stack;
+        return $this->newInstance();
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function ancestors($selector = null)
+    {
+        return $this->children($selector);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function append($content)
+    {
+        return $this->insert($content, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function appendPHP($content)
+    {
+        return $this->insert("<php><!-- {$content} --></php>", 'append');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function appendTo($seletor)
+    {
+        return $this->insert($seletor, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function prepend($content)
+    {
+        return $this->insert($content, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function prependPHP($content)
+    {
+        return $this->insert("<php><!-- {$content} --></php>", 'prepend');
+    }
 }
