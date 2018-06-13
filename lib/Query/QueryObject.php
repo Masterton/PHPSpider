@@ -2108,10 +2108,111 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     /**
      * Enter description here...
      *
+     * @todo accept many arguments, which are joined, arrays maybe also
      * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
      */
     public function prependPHP($content)
     {
         return $this->insert("<php><!-- {$content} --></php>", 'prepend');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function prependTo($selector)
+    {
+        return $this->insert($selector, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function before($content)
+    {
+        return $this->insert($content, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function beforePHP($content)
+    {
+        return $this->insert("<php><!-- {$content} --></php>", 'before');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function insertBefore($selector)
+    {
+        return $this->insert($selector, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function after($content)
+    {
+        return $this->insert($content, __FUNCTION__);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function afterPHP($content)
+    {
+        return $this->insert("<php><!-- {$content} --></php>", 'after');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function insertAfter($seletor)
+    {
+        return $this->insert($selector, __FUNCTION__);
+    }
+
+    /**
+     * Internal insert method. Don't use it.
+     *
+     * @param unknown_type $target
+     * @param unknown_type $type
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @access private
+     */
+    public function insert($target, $type)
+    {
+        // TODO
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return Int
+     */
+    public function index($subject)
+    {
+        $index = -1;
+        $subject = $subject instanceof QueryObject ? $subject->elements[0] : $subject;
+        foreach ($this->newInstance() as $k => $node) {
+            if ($node->isSameNode($subject)) {
+                $index = $k;
+            }
+        }
+        return $index;
     }
 }
