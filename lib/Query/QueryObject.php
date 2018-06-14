@@ -2196,7 +2196,145 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
      */
     public function insert($target, $type)
     {
-        // TODO
+        $this->debug("Inserting data with '{$type}'");
+        $to = false;
+        switch ($type) {
+            case 'appendTo':
+            case 'prependTo':
+            case 'insertBefore':
+            case 'insertAfter':
+                $to = true;
+        }
+        switch (gettype($target)) {
+            case 'string':
+                $insertFrom = $insertTo = array();
+                if ($to) {
+                    // INSERT TO
+                    $insertFrom = $this->elements;
+                    if (Query::isMarkup($target)) {
+                        // $target is new markup, import it
+                        $insertTo = $this->documentWrapper->import($target);
+                    } else { // insert into selected element
+                        // $target is a selector
+                        $thisStack = $this->elements;
+                        $this->toRoot();
+                        $insertTo = $this->find($target)->elements;
+                        $this->elements = $thisStack;
+                    }
+                } else {
+                    // INSERT FROM
+                    $insertTo = $this->elements;
+                    $insertFrom = $this->documentWrapper->import($target);
+                }
+                break;
+            case 'object':
+                $insertFrom = $insertTo = array();
+                // Query
+                if ($target instanceof self) {
+                    if ($to) {
+                        $insertTo = $target->elements;
+                        if ($this->documentFragment && $this->stackIsRoot()) {
+                            // get all body children
+                            // $loop = $this->find('body > *')->elements;
+                            // TODO test it, test it hard...
+                            // $loop $this->newInstance($this->root)->find('> *')->elements;
+                            $loop = $this->root->childNodes;
+                        } else {
+                            $loop = $this->elements;
+                        }
+                        // import nodes if needed
+                        $insertFrom = $this->getDocumentID() == $target->getDocumentID() ? $loop : $target->documentWrapper->import($loop);
+                    } else {
+                        $insertTo = $this->elements;
+                        if ($target->documentFragment && $target->stackIsRoot()) {
+                            // get all body children
+                            // $loop $target->find('body > *')->elements;
+                            $loop = $target->root->childNodes;
+                        } else {
+                            $loop = $target->elements;
+                        }
+                        // import nodes if needed
+                        $insertFrom = $this->getDocumentID() == $target->getDocumentID() ? $loop : $this->documentWrapper->import($loop);
+                    }
+                } elseif ($target instanceof DOMNODE) {
+                    // import node if needed
+                    /*if ($target->ownerDocument != $this->DOM) {
+                        $target = $this->DOM->importNode($target, true);
+                    }*/
+                    if ($to) {
+                        $insertTo = array($target);
+                        if ($this->documentFragment && $this->stackIsRoot()) {
+                            // get all body children
+                            $loop = $this->root->childNodes;
+                            // $loop = $this->find('body > *')->elements;
+                        } else {
+                            $loop = $this->elements;
+                        }
+                        foreach ($loop as $fromNode) {
+                            // import nodes if needed
+                            $insertFrom[] = !$fromNode->ownerDocument->isSameNode($target->ownerDocument) ? $target->ownerDocument->importNode($fromNode, true) : $fromNode;
+                        }
+                    } else {
+                        // import node if needed
+                        if (!$target->ownerDocument->isSameNode($this->document)) {
+                            $target = $this->document->importNode($target, true);
+                        }
+                        $insertTo = $this->elements;
+                        $insertFrom[] = $target;
+                    }
+                }
+                break;
+        }
+        Query::debug("From ".count($insertFrom)."; To ".count($insertTo)." nodes");
+        foreach ($insertTo as $insertNumber => $toNode) {
+            // we need static relative elements in some cases
+            switch ($type) {
+                case 'prependTo':
+                case 'prepend':
+                    $firstChild = $toNode->firstChild;
+                    break;
+                case 'insertAfter':
+                case 'after':
+                    $nextSibling = $toNode->nextSibling;
+                    break;
+            }
+            foreach ($insertFrom as $fromNode) {
+                // close if inserted already before
+                $insert = $insertNumber ? $fromNode->cloneNode(true) : $fromNode;
+                switch ($type) {
+                    case 'appendTo':
+                    case 'append':
+                        // $toNode->insertBefore($fromNode, $toNode->lastChild->nextSibling);
+                        $toNode->appendChild($insert);
+                        $eventTarget = $insert;
+                        break;
+                    case 'prependTo':
+                    case 'prepend':
+                        $toNode->insertBefore($insert, $firstChild);
+                        break;
+                    case 'insertBefore':
+                    case 'before':
+                        if (!$toNode->parentNode) {
+                            throw new Exception("No parentNode, can't do {$type}()");
+                        } else {
+                            $toNode->parentNode->insertBefore($insert, $toNode);
+                        }
+                        break;
+                    case 'insertAfter':
+                    case 'after':
+                        if (!$toNode->parentNode) {
+                            throw new Exception("No parentNode, can't do {$type}()");
+                        } else {
+                            $toNode->parentNode->insertBefore($insert, $nextSibling);
+                        }
+                        break;
+                }
+                // Mutation event
+                $event = new DOMEvent(array('target' => $insert, 'type' => 'DOMNodeInserted'));
+                QueryEvents::trigger($this->getDocumentID(), $event->type, array($event), $insert);
+            }
+        }
+        return $this;
     }
 
     /**
