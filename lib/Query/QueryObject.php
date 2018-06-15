@@ -2353,4 +2353,28 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $index;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @param unknown_type $start
+     * @param ubknown_type $end
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function slice($start, $end = null)
+    {
+        // $last = count($this->elements) - 1;
+        // $end = $end ? min($end, $last) : $last;
+        // if ($start < 0) {
+        //     $start = $last + $start;
+        // }
+        // if ($start > $last) {
+        //     return array();
+        // }
+        if ($end > 0) {
+            $end = $end - $start;
+        }
+        return $this->newInstance(array_slice($this->elements, $start, $end));
+    }
 }
