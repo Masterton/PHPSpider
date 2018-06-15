@@ -2377,4 +2377,16 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this->newInstance(array_slice($this->elements, $start, $end));
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function reverse()
+    {
+        $this->elementsBackup = $this->elements;
+        $this->elements = array_reverse($this->elements);
+        return $this->newInstance();
+    }
 }
