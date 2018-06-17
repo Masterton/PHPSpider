@@ -2389,4 +2389,15 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         $this->elements = array_reverse($this->elements);
         return $this->newInstance();
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function plugin($class, $file = null)
+    {
+        Query::plugin($class, $file);
+        return $this;
+    }
 }
