@@ -2391,6 +2391,32 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     }
 
     /**
+     * Return joined text content.
+     *
+     * @return String
+     */
+    public function text($text = null, $callback1 = null, $callback2 = null, $callback3 = null)
+    {
+        if (isset($text)) {
+            return $this->html(htmlspecialchars($text));
+        }
+        $args = func_get_args();
+        $args = array_slice($args, 1);
+        $return = '';
+        foreach ($this->elements as $node) {
+            $text = $node->textContent;
+            if (count($this->elements) > 1 && $text) {
+                $text .= "\n";
+            }
+            foreach ($args as $callback) {
+                $text = Query::callbackRun($callback, array($text));
+            }
+            $return .= $text;
+        }
+        return $return;
+    }
+
+    /**
      * Enter description here...
      *
      * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
@@ -2399,5 +2425,60 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     {
         Query::plugin($class, $file);
         return $this;
+    }
+
+    /**
+     * Deprecated, use $pq->plugin() instead.
+     *
+     * @deprecated
+     * @param $class
+     * @param $file
+     * @return unknown_type
+     */
+    public static function extend($class, $file = null)
+    {
+        return $this->plugin($class, $file);
+    }
+
+    /**
+     * __call
+     *
+     * @access private
+     * @param $method
+     * @param $args
+     * @return unknown_type
+     */
+    public function __call($method, $args)
+    {
+        $aliasMethods = array('clone', 'empty');
+        if (isset(Query::$extendMethods[$method])) {
+            array_unshift($args, $this);
+            return Query::callbackRun(Query::$extendMethods[$method], $args);
+        } else if (isset(Query::$pluginsMethods[$method])) {
+            array_unshift($args, $this);
+            $class = Query::$pluginsMethods[$method];
+            $realClass = "QueryObjectPlugin_$class";
+            $return = call_user_func_array(array($realClass, $method), $args);
+            // XXX deprecate ?
+            return is_null($return) ? $this : $return;
+        } else if (in_array($method, $aliasMethods)) {
+            return call_user_func_array(array($this, '_'.$method), $args);
+        } else {
+            throw new Exception("Method '{$method}' doesnt exist");
+        }
+    }
+
+    /**
+     * Safe rename of next().
+     *
+     * Use it ONLY when need to call next() on an iterated object (in same time).
+     * Normaly there is no need to do such thing ;)
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @access private
+     */
+    public function _next($selector = null)
+    {   return $this->newInstance($this->getElementSiblings('nextSibling', $selector, true));
+
     }
 }
