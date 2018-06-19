@@ -2478,7 +2478,99 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
      * @access private
      */
     public function _next($selector = null)
-    {   return $this->newInstance($this->getElementSiblings('nextSibling', $selector, true));
+    {
+        return $this->newInstance($this->getElementSiblings('nextSibling', $selector, true));
+    }
 
+    /**
+     * Use prev() and next().
+     *
+     * @deprecated
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @access private
+     */
+    public function _prev($selector = null)
+    {
+        return $this->prev($selector);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function prev($selector = null)
+    {
+        return $this->newInstance($this->getElementSiblings('previousSibling', $selector, true));
+    }
+
+    /**
+     * prevAll
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo
+     */
+    public function prevAll($selector)
+    {
+        return $this->newInstance($this->getElementSiblings('previousSibling', $selector));
+    }
+
+    /**
+     * nextAll
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo FIXME: returns source elements insted of next siblings
+     */
+    public function nextAll($selector = null)
+    {
+        return $this->newInstance($this->getElementSiblings('nextSibling', $selector));
+    }
+
+    /**
+     * getElementSiblings
+     *
+     * @access private
+     */
+    protected function getElementSiblings($direction, $selector = null, $limitToOne = false)
+    {
+        $stack = array();
+        $count = 0;
+        foreach ($this->stack() as $node) {
+            $test = $node;
+            while (isset($test->{$direction}) && $test->{$direction}) {
+                $test = $test->{$direction};
+                if (!$test instanceof DOMELEMENT) {
+                    continue;
+                }
+                $stack[] = $test;
+                if ($limitToOne) {
+                    break;
+                }
+            }
+        }
+        if ($selector) {
+            $stackOld = $this->elements;
+            $this->elements = $stack;
+            $stack = $this->filter($selector, true)->stack();
+            $this->elements = $stackOld;
+        }
+        return $stack;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function siblings($selector = null)
+    {
+        $stack = array();
+        $siblings = array_merge($this->getElementSiblings('previousSibling', $selector), $this->getElementSiblings('nextSibling', $selector));
+        foreach ($siblings as $node) {
+            if (!$this->elementsContainsNode($node, $stack)) {
+                $stack[] = $node;
+            }
+        }
+        return $this->newInstance($stack);
     }
 }
