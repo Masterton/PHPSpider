@@ -2573,4 +2573,90 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this->newInstance($stack);
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function not($selector)
+    {
+        if (is_string($selector)) {
+            Query::debug(array('not', $selector));
+        } else {
+            Query::debug('not');
+        }
+        $stack = array();
+        if ($selector instanceof self || $selector instanceof DOMNODE) {
+            foreach ($this->stack() as $node) {
+                if ($selector instanceof self) {
+                    $matchFound = false;
+                    foreach ($selector->stack() as $notNode) {
+                        if ($notNode->isSameNode($node)) {
+                            $matchFound = true;
+                        }
+                    }
+                    if (!$matchFound) {
+                        $stack[] = $node;
+                    }
+                } else if ($selector instanceof DOMNODE) {
+                    if (!$selector->isSameNode($node)) {
+                        $stack[] = $node;
+                    }
+                } else {
+                    if (!$this->is($selector)) {
+                        $stack[] = $node;
+                    }
+                }
+            }
+        } else {
+            $orgStack = $this->stack();
+            $matched = $this->filter($selector, true)->stack();
+            // $matched = array();
+            // // simulate OR in filter() instead of AND 5y
+            // foreach ($this->parseSelector($selector) as $s) {
+            //     $matched = array_merge($matched, $this->filter(array($s))->stack());
+            // }
+            foreach ($orgStack as $node) {
+                if (!$this->elementsContainsNode($node, $matched)) {
+                    $stack[] = $node;
+                }
+            }
+        }
+        return $this->newInstance($stack);
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param string|QueryObject
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function add($selector = null)
+    {
+        if (!$selector) {
+            return $this;
+        }
+        $stack = array();
+        $this->elementsBackup = $this->elements;
+        $found = Query::pq($selector, $this->getDocumentID());
+        $this->merge($found->elements);
+        return $this->newInstance();
+    }
+
+    /**
+     * merge
+     *
+     * @access private
+     */
+    protected function merge()
+    {
+        foreach (func_get_args() as $nodes) {
+            foreach ($node as $newNode) {
+                if (!$this->elementsContainsNode($newNode)) {
+                    $this->elements[] = $newNode;
+                }
+            }
+        }
+    }
 }
