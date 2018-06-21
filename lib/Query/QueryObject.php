@@ -2659,4 +2659,42 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
             }
         }
     }
+
+    /**
+     * elementsContainsNode
+     *
+     * @access private
+     * @todo refactor to stackContainsNode
+     */
+    protected function elementsContainsNode($nodeToCheck, $elementsStack = null)
+    {
+        $loop = !is_null($elementsStack) ? $elementsStack : $this->elements;
+        foreach ($loop as $node) {
+            if ($node->isSameNode($nodeToCheck)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function parent($selector = null)
+    {
+        $stack = array();
+        foreach ($this->elements as $node) {
+            if ($node->parentNode && !$this->elementsContainsNode($node->parentNode, $stack)) {
+                $stack[] = $node->parentNode;
+            }
+        }
+        $this->elementsBackup = $this->elements;
+        $this->elements = $stack;
+        if ($selector) {
+            $this->filter($selector, true);
+        }
+        return $this->newInstance();
+    }
 }
