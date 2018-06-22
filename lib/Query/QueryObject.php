@@ -2697,4 +2697,36 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this->newInstance();
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function parents($selector = null)
+    {
+        $stack = array();
+        if (!$this->elements) {
+            $this->debug("parents() - stack empty");
+        }
+        foreach ($this->elements as $node) {
+            $test = $node;
+            while ($test->parentNode) {
+                $test = $test->parentNode;
+                if ($this->isRoot($test)) {
+                    break;
+                }
+                if (!$this->elementsContainsNode($test, $stack)) {
+                    $stack[] = $test;
+                    continue;
+                }
+            }
+        }
+        $this->elementsBackup = $this->elements;
+        $this->elements = $stack;
+        if ($selector) {
+            $this->filter($selector, true);
+        }
+        return $this->newInstance();
+    }
 }
