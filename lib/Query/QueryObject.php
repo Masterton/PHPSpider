@@ -2729,4 +2729,26 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this->newInstance();
     }
+
+    /**
+     * Internal Stack iterator.
+     *
+     * @access private
+     */
+    public function stack($nodeType = null)
+    {
+        if (!isset($nodeTypes) {
+            return $this->elements;
+        }
+        if (!is_array($nodeTypes)) {
+            $nodeTypes = array($nodeTypes);
+        }
+        $return = array();
+        foreach ($this->elements as $node) {
+            if (in_array($node->nodeType, $nodeTypes)) {
+                $return[] = $node;
+            }
+        }
+        return $return;
+    }
 }
