@@ -2737,7 +2737,7 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
      */
     public function stack($nodeType = null)
     {
-        if (!isset($nodeTypes) {
+        if (!isset($nodeTypes)) {
             return $this->elements;
         }
         if (!is_array($nodeTypes)) {
@@ -2748,6 +2748,30 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
             if (in_array($node->nodeType, $nodeTypes)) {
                 $return[] = $node;
             }
+        }
+        return $return;
+    }
+
+    /**
+     * attrEvents
+     *
+     * @todo phpdoc; $oldAttr is result of hasAttribute, before any changes
+     */
+    protected function attrEvents($attr, $oldAttr, $oldValue, $node)
+    {
+
+    }
+
+    /**
+     * getNodeAttrs
+     *
+     * @access private
+     */
+    protected function getNodeAttrs($node)
+    {
+        $return = array();
+        foreach ($node->attributes as $n => $o) {
+            $return[] = $n;
         }
         return $return;
     }
