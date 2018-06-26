@@ -2759,7 +2759,26 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
      */
     protected function attrEvents($attr, $oldAttr, $oldValue, $node)
     {
-
+        // skip events for XML documents
+        if (!$this->isXHTML() && !$this->isHTML()) {
+            return;
+        }
+        $event = null;
+        // identify
+        $isInputValue = $node->tagName == 'input' && (in_array($node->getAttribute('type'), array('text', 'password', 'hidden')) || !$node->getAttribute('type'));
+        $isRadio = $node->tagName == 'input' && $node->getAttribute('type') == 'radio';
+        $isCheckbox = $node->tagName == 'input' && $node->getAttribute('type') == 'checkbox';
+        $isOption = $node->tagName == 'option';
+        if ($isInputValue && $attr == 'value' && $oldValue != $node->getAttribute($attr)) {
+            $event = new DOMEvent(array('target' => $node, 'type' => 'change'));
+        } else if (($isRadio || $isCheckbox) && $attr == 'checked' && ((!$oldAttr && $node->hasAttribute($attr)) || (!$node->hasAttribute($attr) && $oldAttr))) {
+            $event = new DOMEvent('target' => $node, 'type' => 'change');
+        } else if ($isOption && $node->parentNode && $attr == 'selected' && ((!$oldAttr && $node->hasAttribute($attr)) || (!$node->hasAttribute($attr) && $oldAttr))) {
+            $event = new DOMEvent(array('target' => $node->parentNode, 'type' => 'change'));
+        }
+        if ($event) {
+            QueryEvents::trigger($this->getDocument(), $event->type, array($event), $node);
+        }
     }
 
     /**
