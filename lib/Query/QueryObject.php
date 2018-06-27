@@ -2782,6 +2782,36 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
     }
 
     /**
+     * attr
+     */
+    public function attr($attr = null, $value = null)
+    {
+        foreach ($this->stack(1) as $node) {
+            if (!is_null($value)) {
+                $loop = $attr == '*' ? $this->getNodeAttrs($node) : array($attr);
+                foreach ($loop as $a) {
+                    $oldValue = $node->getAttribute($a);
+                    $oldAttr = $node->hasAttribute($a);
+                    // TODO raises an error when charset other than UTF-8
+                    // while document's charset is also not UTF-8
+                    @$node->setAttribute($a, $value);
+                    $this->attrEvents($a, $oldAttr, $oldValue, $node);
+                }
+            } else if ($attr == '*') {
+                // jQuery difference
+                $return = array();
+                foreach ($node->attributes as $n => $v) {
+                    $return[$n] = $v->value;
+                }
+                return $return;
+            } else {
+                return $node->hasAttribute($attr) ? $node->getAttribute($attr) : null;
+            }
+        }
+        return is_null($value) ? '' : $this;
+    }
+
+    /**
      * getNodeAttrs
      *
      * @access private
@@ -2793,5 +2823,41 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
             $return[] = $n;
         }
         return $return;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo check CDATA ???
+     */
+    public function attrPHP($attr, $code)
+    {
+        if (!is_null($code)) {
+            $value = '<'.'?php'.$code.' ?'.'>';
+            // TODO tempolary solution
+            // http://code.google.com/p/phpquery/issues/detail?id=17
+            // if (function_exists('mb_detect_encoding') && mb_detect_encoding($value) == 'ASCII') {
+            //     $value = mb_convert_encoding($value, 'UTF-8', 'HTML-ENTITIES');
+            // }
+        }
+        foreach ($this->stack(1) as $node) {
+            if (!is_null($code)) {
+                // $attrNode = $this->DOM->createAttribute($attr);
+                $node->setAttribute($attr, $value);
+                // $attrNode->value = $value;
+                // $node->appendChild($attrNode);
+            } else if ($attr == '*') {
+                // jQuery diff
+                $return = array();
+                foreach ($node->attributes as $n => $v) {
+                    $return[$n] = $v->value;
+                }
+                return $return;
+            } else {
+                return $node->getAttribute($attr);
+            }
+        }
+        return $this;
     }
 }
