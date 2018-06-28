@@ -2860,4 +2860,96 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function removeAttr($attr)
+    {
+        foreach ($this->stack(1) as $node) {
+            $loop = $attr == '*' ? $this->getNodeAttr($node) : array($attr);
+            foreach ($loop as $a) {
+                $oldValue = $node->getAttribute($a);
+                $node->removeAttribute($a);
+                $this->attrEvents($a, $oldValue, null, $node);
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * Return form element value.
+     *
+     * @return String Fields value.
+     */
+    public function val($val = null)
+    {
+        if (!isset($val)) {
+            if ($this->eq(0)->is('select')) {
+                $selected = $this->eq(0)->find('option[selected=selected]');
+                if ($selected->is('[value]')) {
+                    return $selected->attr('value');
+                } else {
+                    return $selected->text();
+                }
+            } else if ($this->eq(0)->is('textarea')) {
+                return $this->eq(0)->markup();
+            } else {
+                return $this->eq(0)->attr('value');
+            }
+        } else {
+            $_val = null;
+            foreach ($this->stack(1) as $node) {
+                $node = pq($node, $this->getDocumentID());
+                if (is_array($val) && in_array($node->attr('type'), array('checkbox', 'radio'))) {
+                    $isCheckbox = in_array($node->attr('value'), $val) || in_array($node->attr('name'), $val);
+                    if ($isCheckbox) {
+                        $node->attr('checked', 'checked');
+                    } else {
+                        $node->removeAttr('checked');
+                    }
+                } else if ($node->get(0)->tagName == 'select') {
+                    if (!isset($_val)) {
+                        $_val = array();
+                        if (!is_array($val)) {
+                            $_val = array((string)$val);
+                        } else {
+                            foreach ($val as $v) {
+                                $_val[] = $v;
+                            }
+                        }
+                    }
+                    foreach ($node['option']->stack(1) as $option) {
+                        $option = pq($option, $this->getDocumentID());
+                        $selected = false;
+                        // XXX: workaround for string comparsion, see issue #96
+                        // http://code.google.com/p/phpquery/issues/detail?id=96
+                        $selected = is_null($option->attr('value')) ? in_array($option->markup(), $_val) : in_array($option->attr('value'), $_val);
+                        /*$optionValue = $option->attr('value');
+                        $optionText = $option->text();
+                        $optionTextLength = mb_strlen($optionText);
+                        foreach ($_val as $v) {
+                            if ($optionValue == $v) {
+                                $selected = true;
+                            } else if ($optionText == $v && $optionTextLength == mb_strlen($v)) {
+                                $selected = true;
+                            }
+                        }*/
+                        if ($selected) {
+                            $option->attr('selected', 'selected');
+                        } else {
+                            $option->removeAttr('selected');
+                        }
+                    }
+                } else if ($node->get(0)->tagName == 'textarea') {
+                    $node->markup($val);
+                } else {
+                    $node->attr('value', $val);
+                }
+            }
+        }
+        return $this;
+    }
 }
