@@ -2952,4 +2952,17 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function andSelf()
+    {
+        if ($this->previous) {
+            $this->elements = array_merge($this->elements, $this->previous->elements);
+        }
+        return $this;
+    }
 }
