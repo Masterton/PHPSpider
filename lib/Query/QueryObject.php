@@ -2965,4 +2965,22 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function addClass($className)
+    {
+        if (!$className) {
+            return $this;
+        }
+        foreach ($this->stack(1) as $node) {
+            if (!$this->is(".$className", $node)) {
+                $node->setAttribute('class', trim($node->getAttribute('class') . ' ' . $className));
+            }
+        }
+        return $this;
+    }
 }
