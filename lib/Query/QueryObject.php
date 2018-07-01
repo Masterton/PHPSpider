@@ -2983,4 +2983,292 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $this;
     }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function addClassPHP($className)
+    {
+        foreach ($this->stack(1) as $node) {
+            $classes = $node->getAttribute('class');
+            $newValue = $classes ? $classes . ' <' . '?php ' . $className . ' ?' . '>' : '<' . '?php' . $className . ' ?' . '>';
+            $node->setAttribute('class', $newValue);
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param string $className
+     * @return bool
+     */
+    public function hasClass($className)
+    {
+        foreach ($this->stack(1) as $node) {
+            if ($this->is(".$className", $node)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Enter dsecription here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function removeClass($className)
+    {
+        foreach ($this->stack(1) as $node) {
+            $classes = explode(' ', $node->getAttribtue('class'));
+            if (in_array($className, $classes)) {
+                $classes = array_diff($classes, array($className));
+                if ($classes) {
+                    $node->setAttribute('class', implode(' ', $classes));
+                } else {
+                    $node->removeAttribute('class');
+                }
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function toggleClass($className)
+    {
+        foreach ($this->stack(1) as $node) {
+            if ($this->is($node, '.' . $className)) {
+                $this->removeClass($className);
+            } else {
+                $this->addClass($className);
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * Proper name without underscore (just ->empty()) also works.
+     *
+     * Removes all child nodes from the set of matched elements.
+     *
+     * Example:
+     * pq("q")._empty()
+     *
+     * HTML:
+     * <p>Hello, <span>Person</span> <a href="#">and person</a></p>
+     *
+     * Result:
+     * [ <p></p> ]
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @access private
+     */
+    public function _empty()
+    {
+        foreach ($this->stack(1) as $node) {
+            // thx to 'dave at dgx dot cz'
+            $node->nodeValue = '';
+        }
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param array|string $callback Expects $node as first param, $index as second
+     * @param array $scope External variables passed to callback. Use compact('varName1', 'varName2'...) and extract($scope)
+     * @param array $arg1 Will ba passed as third and futher args to callback.
+     * @param array $arg2 Will ba passed as fourth and futher args to callback, and so on...
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function each($callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        $paramStructure = null;
+        if (func_num_args() > 1) {
+            $paramStructure = func_get_args();
+            $paramStructure = array_slice($paramStructure, 1);
+        }
+        foreach ($this->elements as $v) {
+            Query::callbackRun($callback, array($v), $paramStructure);
+        }
+        return $this;
+    }
+
+    /**
+     * Run callback on actual object.
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function callback($callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        $params = func_get_args();
+        $params[0] = $this;
+        Query::callbackRun($callback, $params);
+        return $this;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo add $scope and $args as in each() ???
+     */
+    public function map($callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        /*$stack = array();
+        foreach ($this->newInstance() as $node) {
+            $result = call_user_func($callback, $node);
+            if ($result) {
+                $stack[] = $result;
+            }
+        }*/
+        $params = func_get_args();
+        array_unshift($params, $this->elements);
+        return $this->newInstance(
+            call_user_func(array('Query', 'map'), $params)
+            // Query::map($this->elements, $callback);
+        );
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param <type> $key
+     * @param <type> $value
+     */
+    public function data($key, $value = null)
+    {
+        if (!isset($value)) {
+            // TODO? implement specific jQuery bahavior od returning parent values
+            // is child with we look up doesn't exist
+            return Query::data($this->get(0), $key, $value, $this->getDocumentID());
+        } else {
+            foreach ($this as $node) {
+                Query::data($node, $key, $value, $this->getDocumentID());
+            }
+            return $this;
+        }
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param <type> $key
+     */
+    public function removeData($key)
+    {
+        foreach ($this as $node) {
+            Query::removeData($node, $key, $this->getDocumentID());
+        }
+        return $this;
+    }
+
+    // INTERFACE IMPLEMENTATIONS
+    // ITERATOR INTERFACE
+    /**
+     * @access private
+     */
+    public function rewind()
+    {
+        $this->debug('iterating foreach');
+        // Query::selectDocument($this->getDocumentID());
+        $this->elementsBackup = $this->elements;
+        $this->elementsInterator = $this->elements;
+        $this->valid - isset($this->elements[0]) ? 1 : 0;
+        // $this->elements = $this->valid ? array($this->elements[0]) : array();
+        $this->current = 0;
+    }
+
+    /**
+     * @access private
+     */
+    public function current()
+    {
+        return $this->elementsInterator[$this->current];
+    }
+
+    /**
+     * @access private
+     */
+    public function key()
+    {
+        return $this->current;
+    }
+
+    /**
+     * Double-function method.
+     *
+     * First: main iterator interface method.
+     * Second: Returning next sibling, alias for _next().
+     *
+     * Proper functionality is choosed automagicaly.
+     *
+     * @see QueryObject::_next()
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function next($cssSelector = null)
+    {
+        /*if ($cssSelector || $this->valid) {
+            return $this->_next($cssSelector);
+        }*/
+        $this->valid = isset($this->elementsInterator[$this->current+1]) ? true : false;
+        if (!$this->valid && $this->elementsInterator) {
+            $this->elementsInterator = null;
+        } else if ($this->valid) {
+            $this->current++;
+        } else {
+            return $this->_next($cssSelector);
+        }
+    }
+
+    /**
+     * @access private
+     */
+    public function valid()
+    {
+        return $this->valid;
+    }
+
+    // ITERATOR INTERFACE END
+    // ARRAYACCESS INTERFACE
+    /**
+     * @access private
+     */
+    public function offsetExists($offset)
+    {
+        return $this->find($offset)->size() > 0;
+    }
+
+    /**
+     * @access private
+     */
+    public function offsetGet($offset)
+    {
+        return $this->find($offset);
+    }
+
+    /**
+     * @access private
+     */
+    public function offsetSet($offset, $value)
+    {
+        // $this->find($offset)->replaceWith($value);
+        $this->find($offset)->html($value);
+    }
+
+    /**
+     * @access private
+     */
+    public function offsetUnset($offset)
+    {
+        // empty
+        throw new Exception("Can't do unset, use array interface only for calling queries and replacing HTML.");
+    }
 }
