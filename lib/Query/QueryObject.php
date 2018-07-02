@@ -3271,4 +3271,80 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         // empty
         throw new Exception("Can't do unset, use array interface only for calling queries and replacing HTML.");
     }
+
+    // ARRAYACCESS INTERFACE END
+    /**
+     * Returns node's XPath.
+     *
+     * @param ubkbown_type $oneNode
+     * @return string
+     * @todo use native getNodePath is avaible
+     * @access private
+     */
+    protected function getNodeXpath($oneNode = null, $namespace = null)
+    {
+        $return array();
+        $loop = $oneNode ? array($oneNode) : $this->elements;
+
+        if ($namespace) {
+            $namespace .= ':';
+        }
+        foreach ($loop as $node) {
+            if ($node instanceof DOMDOCUMENT) {
+                $return[] = '';
+                continue;
+            }
+            $xpath = array();
+            while (!($node instanceof DOMDOCUMENT)) {
+                $i = 1;
+                $sibling = $node;
+                while ($sibling->previousSibling) {
+                    $sibling = $sibling->previousSibling;
+                    $isElement = $sibling instanceof DOMDOCUMENT;
+                    if ($isElement && $sibling->tagName == $node->tagName) {
+                        $i++;
+                    }
+                }
+                $xpath[] = $this->isXML() ? "*[local-name()='{$node->tagName}'][{$i}]" : "{$node->tagName}[{$i}]";
+                $node = $node->parentNode;
+            }
+            $xpath = join('/', array_reverse($xpath));
+            $return[] = '/'.$xpath;
+        }
+        return $oneNode ? $return[0] : $return;
+    }
+
+    // HELPERS
+    /**
+     * whois
+     *
+     * @return
+     */
+    public function whois($oneNode = null)
+    {
+        $return = array();
+        $loop = $oneNode ? array($oneNode) ? $this->elements;
+        foreach ($loop as $node) {
+            if (isset($node->tagNmae)) {
+                $tag = in_array($node->tagName, array('php', 'js')) ? strtoupper($node->tagName) ? $node->tagName;
+                $return[] = $tag
+                    . ($node->getAttribute('id') ? '#' . $node->getAttribute('id') : '')
+                    . ($node->getAttribute('class') ? '.' 
+                        . join('.', split(' ', $node->getAttribute('class'))) : '')
+                    . ($node->getAttribute('name') ? 'name="' . $node->getAttribute('name') . '"]' : '')
+                    . ($node->getAttribute('value') && strpos($node->getAttribute('value'), '<', '?php') === false ? '[value="' . substr(str_replace("\n", '', $node->getAttribute('value')), 0, 15) . '"]' : '')
+                    . ($node->getAttribute('value') && strpos($node->getAttribute('value'), '<', '?php') !== false ? '[value=PHP]' : '')
+                    . ($node->getAttribute('selected') ? '[selected]' : '')
+                    . ($node->getAttribute('checked') ? '[checked]' : '')
+                ;
+            } else if ($node instanceof DOMTEXT) {
+                if (trim($node->textContent)) {
+                    $return[] = 'Text:' . substr(str_replace("\n", ' ', $node->textContent), 0, 15);
+                }
+            } else {
+                // TODO
+            }
+        }
+        return $oneNode && isset($return[0]) ? $return[0] : $return;
+    }
 }
