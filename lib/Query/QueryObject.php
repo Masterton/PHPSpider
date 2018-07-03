@@ -3347,4 +3347,91 @@ class QueryObject implements \Iterator, \Countable, \ArrayAccess
         }
         return $oneNode && isset($return[0]) ? $return[0] : $return;
     }
+
+    /**
+     * Dump htmlOuter and preserve chain. Usefull for debugging.
+     *
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public function dump()
+    {
+        print 'DUMP #'.(Query::$dumpCount++).' ';
+        $debug = Query::$debug;
+        Query::$debug = false;
+        // print __FILE__ . ':' . __LINE__ . "\n";
+        var_dump($this->htmlOuter());
+        return $this;
+    }
+
+    /**
+     * dumpWhois
+     */
+    public function dumpWhois()
+    {
+        print 'DUMP #' . (Query::$dumpCount++) . ' ';
+        $debug = Query::$debug;
+        Query::$debug = false;
+        // print __FILE__ . ':' . __LINE__ . "\n";
+        var_dump('whois', $this->whois());
+        Query::$debug = $debug;
+        return $this;
+    }
+
+    /**
+     * dumpLength
+     */
+    public function dumpLength()
+    {
+        print 'DUMP #' . (Query::$dumpCount++) . ' ';
+        $debug = Query::$debug;
+        Query::$debug = false;
+        // print __FILE__ . ':' __LINE__ . "\n";
+        var_dump('length', $this->length());
+        Query::$debug = $debug;
+        return $this;
+    }
+
+    /**
+     * dumpTree
+     */
+    public function dumpTree($html = true, $title = true)
+    {
+        $output = $title ? 'DUMP #' . (Query::$dumpCount++) . " \n" : '';
+        $debug = Query::$debug;
+        Query::$debug = false;
+        foreach ($this->stack() as $node) {
+            $output .= $this->__dumpTree($node);
+        }
+        Query::$debug = $debug;
+        print $html ? nl2br(str_replace(' ', '&nbsp;', $output)) : $output;
+        return $this;
+    }
+
+    /**
+     * __dumpTree
+     */
+    public function __dumpTree($node, $intend = 0)
+    {
+        $whois = $this->whois($node);
+        $return = '';
+        if ($whois) {
+            $return .= str_repeat(' - ', $intend) . $whois . "\n";
+        }
+        if (isset($node->childNodes)) {
+            foreach ($node->childNodes as $chNode) {
+                $return .= $this->__dumpTree($chNode, $intend+1);
+            }
+        }
+        return $return;
+    }
+
+    /**
+     * Dump htmlOuter and stop script execution. Usefull for debugging.
+     */
+    public function dumpDie()
+    {
+        print __FILE . ':' . __LINE__;
+        var_dump($this->htmlOuter());
+        die();
+    }
 }
