@@ -185,7 +185,7 @@ abstract class Query
              * pq(array($domNode1, $domNode2))
              */
             $query = new QueryObject($domId);
-            if (!($arg1 instanceof DOMNODELIST && !is_array($arg1)) {
+            if (!($arg1 instanceof DOMNODELIST) && !is_array($arg1)) {
                 $arg1 = array($arg1);
             }
             $query->elements = array();
@@ -220,5 +220,149 @@ abstract class Query
             }
             return $query->find($arg1);
         }
+    }
+
+    /**
+     * Sets default document to $id. Document has to be loaded prior
+     * to using this method.
+     * $id can be retrived via getDocumentID() or getDocumentIDRef().
+     *
+     * @param unknown_type $id
+     */
+    public static function selectDocument($id)
+    {
+        $id = self::getDocumentID($id);
+        self::debug("Selecting document '$id' as default one");
+        self::$defaultDocumentID = self::getDocumentID($id);
+    }
+
+    /**
+     * Returns document with id $id or last used as QueryObject.
+     * $id can be retrived via getDocument() or getDocumentIDRef().
+     * Chainable.
+     *
+     * @see Query::selectDocument()
+     * @param unknown_type $id
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function getDocument($id = null)
+    {
+        if ($id) {
+            Query::selectDocument($id);
+        } else {
+            $id = Query::$defaultDocumentID;
+        }
+        return new QueryObject($id);
+    }
+
+    /**
+     * Creates new document from markup.
+     * Chainable.
+     *
+     * @param unknown_type $markup
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function newDocument($markup = null, $contentType = null)
+    {
+        if (!$markup) {
+            $markup = '';
+        }
+        $documentID = Query::createDocumentWrapper($markup, $contentType);
+        return new QueryObject($documentID);
+    }
+
+    /**
+     * Creates new document from markup.
+     * Chainable
+     *
+     * @param unknown_type $markup
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function newDocumentHTML($markup = null, $charset = null)
+    {
+        $contentType = $charset ? ";charset=$charset" : '';
+        return self::newDocument($markup, "text/html{$contentType}");
+    }
+
+    /**
+     * Creates new document from markup.
+     * Chainable.
+     *
+     * @param unknown_type $markup
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function newDocumentXML($markup = null, $charset = null)
+    {
+        $contentType = $charset ? ";charset=$charset" : '';
+        return self::newDocument($markup, "text/xml{$contentType}");
+    }
+
+    /**
+     * Creates new document from markup.
+     * Chainable.
+     *
+     * @param unknown_type $markup
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function newDocumentXHTML($markup = null, $charset = null)
+    {
+        $contentType = $charset ? ";charset=$charset" : '';
+        return self::newDocument($markup, "application/xhtml+xml{$contentType}");
+    }
+
+    /**
+     * Creates new document from markup.
+     * Chainable.
+     *
+     * @param unknown_type $markup
+     * @return QueryObject|QueryTemolatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     */
+    public static function newDocumentPHP($markup = null, $contentType = "text/html")
+    {
+        // TODO pass charset to phpToMarkup if possible (use DOMDocumentWrapper function)
+        $markup = Query::phpToMarkup($markup, self::$defaultCharset);
+        return self::newDocument($markup, $contentType);
+    }
+
+    /**
+     * phpToMarkup
+     */
+    public static function phpToMarkup($php, $charset = 'utf-8')
+    {
+        $regexes = array(
+            '@(<(?!\\?)(?:[^>]|\\?>)+\\w+\\s*=\\s*)(\')([^\']*)<'.'?php?(.*?)(?:\\?>)([^\']*)\'@s',
+            '@(<(?!\\?)(?:[^>]|\\?>)+\\w+\\s*=\\s*)(")([^"]*)<'.'?php?(.*?)(?:\\?>)([^"]*)"@s',
+        );
+        foreach ($regexes as $regex) {
+            while (preg_match($regex, $php, $matches)) {
+                $php = preg_replace_callback(
+                    $regex,
+                    // create_function('$m, $charset = "'.$charset.'"', 'return $m[1].$m[2] . htmlspecialchars("<"."?php".$m[4]."?".">", ENT_QUOTES|ENT_NOQUOTES, $charset).$m[5].$m[2];'),
+                    array('Query', '_phpToMarkupCallback'),
+                    $php
+                );
+            }
+        }
+        $regex = '@(^|>[^<]*)+?(<\?php(.*?)(\?>))@s';
+        // preg_match_all($regex, $php, $matches);
+        // var_dump($matches);
+        $php = preg_replace($regex, '\\1<php><!-- \\3 --></php>', $php);
+        return $php;
+    }
+
+    /**
+     * _phpToMarkupCallback
+     */
+    public static function _phpToMarkupCallback($php, $charset = 'utf-8')
+    {
+        return $m[1].$m[2] . htmlspecialchars("<"."?php".$m[4]."?".">", ENT_QUOTES|ENT_NOQUOTES, $charset) . $m[5] . $m[2];
+    }
+
+    /**
+     * _markupToPHPCallback
+     */
+    public static function _markupToPHPCallback($m)
+    {
+        return "<"."?php " . htmlspecialchars_decode($m[1]." ?".">");
     }
 }
