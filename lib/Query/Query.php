@@ -472,4 +472,53 @@ abstract class Query
     {
         return self::newDocumentPHP(file_get_contetns($file), $contentType);
     }
+
+    /**
+     * Reuses existing DOMDocument object.
+     * Chainable
+     *
+     * @param $document DOMDocument
+     * @return QueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
+     * @todo support DOMDocument
+     */
+    public static function loadDocument($document)
+    {
+        // TODO
+        die('TODO loadDocument');
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param unknown_type $html
+     * @param unknown_type $domId
+     * @return unknown New DOM ID
+     * @todo support PHP tags in input
+     * @todo support passing DOMDocument object from self::loadDocument
+     */
+    protected static function createdDocumentWrappeer($html, $contentType = null, $documentID = null)
+    {
+        if (function_exists('domxml_open_mem')) {
+            throw new Exception("Old PHP4 DOM XML extension detected. Query won't work until this extension is enabled.");
+        }
+        // $id = $documentID ? $documentID : md5(microtime());
+        $document = null;
+        if ($html instanceof DOMDOCUMENT) {
+            if (self::getDocumentID($html)) {
+                // document already exists in Query::$documents, mark a copy
+                $document = clone $html;
+            } else {
+                // new document, add it to Query::$documents
+                $wrapper = new DOMDocumentWrapper($html, $contentType, $documentID);
+            }
+        } else {
+            $wrapper = new DOMDocumentWrapper($html, $contentType, $documentID);
+        }
+        // $wrapper->id = $id;
+        // bind document
+        Query::$document[$wrapper->id] = $wrapper;
+        // remember last loaded document
+        Query::selectDocument($wrapper->id);
+        return $wrapper->id;
+    }
 }
