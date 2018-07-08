@@ -521,4 +521,141 @@ abstract class Query
         Query::selectDocument($wrapper->id);
         return $wrapper->id;
     }
+
+    /**
+     * Extend class namespace.
+     *
+     * @param string|array $target
+     * @param array $source
+     * @todo support string $source
+     * @return unknown_type
+     */
+    public static function extend($target, $source)
+    {
+        switch ($target) {
+            case 'QueryObject':
+                $targetRef = &self::$extendMethods;
+                $targetRef2 = &self::$pluginsMethods;
+                break;
+            case 'Query':
+                $targetRef = &self::$extendStaticMethods;
+                $targetRef2 = &self::$pluginsStaticMethods;
+                break;
+            default:
+                throw new Exception("Unsupported \$target type");
+        }
+        if (is_string($source)) {
+            $source = array($source => $source);
+        }
+        foreach ($source as $method => $callback) {
+            if (isset($targetRef[$method])) {
+                // throw new Exception
+                self::debug("Duplicate method '{$method}', can\'t extend '{$target}'");
+                continue;
+            }
+            if (isset($targetRef2[$method])) {
+                // throw new Exception
+                self::debug("Duplicate method '{$method}', can\'t extend '{$target}'");
+                continue;
+            }
+            $targetRef[$method] = $callback;
+        }
+        return true;
+    }
+
+    /**
+     * Extend Query with $class from $file.
+     *
+     * @param string $class Extending class name. Real class name can be prepended Query_.
+     * @param string $file Filename to include. Defaults to "{$class}.php".
+     */
+    public static function plugin($class, $file = null)
+    {
+        // TODO $class checked agains Query_$class
+        /*if (strpos($class, 'Query') === 0) {
+            $class = substr($class, 8);
+        }*/
+        if (in_array($class, self::$pluginsLoaded)) {
+            return true;
+        }
+        if (!$file) {
+            $file = $class . '.php';
+        }
+        $objectClassExists = class_exists('QueryObjectPlugin_'.$class);
+        $staticClassExists = class_exists('QueryPlugin_'.$class);
+        if (!$objectClassExists && !$staticClassExists) {
+            require_once($file);
+        }
+        self::$pluginsLoaded[] = $class;
+        // static methods
+        if (class_exists('QueryPlugin_'.$class)) {
+            $realClass = 'QueryPlugin_'.$class;
+            $vars = get_class_vars($realClass);
+            $loop = isset($vars['QueryMethods']) && !is_null($vars['QueryMethods']) ? $vars['QueryMethods'] : get_class_methods($realClass);
+            foreach ($loop as $method) {
+                if ($method == '__initialize') {
+                    continue;
+                }
+                if (!is_callable(array($realClass, $method))) {
+                    continue;
+                }
+                if (isset(self::$pluginsStaticMethods[$method])) {
+                    throw new Exception("Duplicate method '{$method}' from plugin '{$c}' conflicts with same method from plugin '".self::$pluginsStaticMethods[$method]."'");
+                    return;
+                }
+                self::$pluginsStaticMethods[$method] = $class;
+            }
+            if (method_exists($realClass, '__initialize')) {
+                call_user_func_array(array($realClass, '__initialize'), array());
+            }
+        }
+        // object methods
+        if (clacc_exists('QueryObjectPlugin_'.$class)) {
+            $realClass = 'QueryObjectPlugin_'.$class;
+            $vars = get_class_vars($realClass);
+            $loop = isset($vars['QueryMethods']) && !is_null($vars['QueryMethods']) ? $vars['QueryMethods'] : get_class_methods($realClass);
+            foreach ($loop as $method) {
+                if (!is_callable(array($realClass, $method))) {
+                    continue;
+                }
+                if (isset(self::$pluginsMethods[$method])) {
+                    throw new Exception("Duplicate method '{$method}' from plugin '{$c}' conflicts with same method from plugin '".self::$pluginsMethods['$method']."'");
+                    continue;
+                }
+                self::$pluginsMethods[$method] = $class;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Unloades all or specified document from memory.
+     *
+     * @param mixed $documentID
+     * @see Query::getDocumentID() for supported types.
+     */
+    public static function unloadDocuments($id = null)
+    {
+        if (isset($id)) {
+            if ($id = self::getDocumentID($id)) {
+                unset(Query::$documents[$id]);
+            }
+        } else {
+            foreach (Query::$documents as $k => $v) {
+                unset(Query::$documents[$k]);
+            }
+        }
+    }
+
+    /**
+     * Parsee Query object or HTML result against PHP tags and makes them active.
+     *
+     * @param Query|string $content
+     * @deprecated
+     * @return string
+     */
+    public static function unsafePHPTags($content)
+    {
+        return self::markupToPHP($content);
+    }
 }
