@@ -658,4 +658,141 @@ abstract class Query
     {
         return self::markupToPHP($content);
     }
+
+    /**
+     * DOMNodeListToArray
+     */
+    public static function DOMNodeListToArray($DOMNodeList)
+    {
+        $array = array();
+        if (!$DOMNodeList) {
+            return $array;
+        }
+        foreach ($DOMNodeList as $node) {
+            $array[] = $node;
+        }
+        return $array;
+    }
+
+    /**
+     * Checks if $input is HTML string, which has to start with '<'.
+     *
+     * @deprecated
+     * @param String $input
+     * @return Bool
+     * @todo still used ?
+     */
+    public static function isMarkup($input)
+    {
+        return !is_array($input) && substr(trim($input), 0, 1) == '<';
+    }
+
+    /**
+     * debug
+     */
+    public static function debug($text)
+    {
+        if (self::$debug) {
+            print var_dump($text);
+        }
+    }
+
+    /**
+     * Make an AJAX request.
+     *
+     * @param array See $options http://docs.jquery.com/Ajax/jQuery.ajax#toptions
+     * Additional options are:
+     * 'document' - document for global events, @see phpQuery::getDocumentID()
+     * 'referer' - implemented
+     * 'requested_with' - TODO; not implemented (X-Requested-With)
+     * @return Zend_Http_Client
+     * @link http://docs.jquery.com/Ajax/jQuery.ajax
+     *
+     * @todo $options['cache']
+     * @todo $options['processData']
+     * @todo $options['xhr']
+     * @todo $options['data'] as string
+     * @todo XHR interface
+     */
+    public static function ajax($options = array(), $xhr = null)
+    {
+        $options = array_merge(self::$ajaxSettings, $options);
+        $documentID = isset($options['document']) ? self::getDocumentID($options['document']) : null;
+        if ($xhr) {
+            // reuse existing XHR object, but clean it up
+            $client = $xhr;
+            // $client->setParameterPost(null);
+            // $client->setParameterGet(null);
+            $client->setAuth(false);
+            $client->setHeaders("If-Modified-Since", null);
+            $client->setHeaders("Referer", null);
+            $client->resetParameters();
+        } else {
+            // create new XHR object
+            require_once('Zend/Http/Client.php');
+            $client = new Zend_Http_Client();
+            $client->setCookieJar();
+        }
+        if (isset($options['timeout'])) {
+            $client->setConfig(array('timeout' => $options['timeout']));
+            // 'maxredirects' => 0,
+        }
+        foreach (self::$ajaxAllowedHosts as $k => $host) {
+            if ($host == '.' && isset($_SERVER['HTTP_HOST'])) {
+                self::$ajaxAllowedHosts[$k] = $_SERVER['HTTP_HOST'];
+            }
+        }
+        $host = parse_url($options['url'], PHP_URL_HOST);
+        if (!in_array($host, self::$ajaxAllowedHosts)) {
+            throw new Exception("Request not permitted, host '$host' not present in "."Query::\$ajaxAllowedHosts");
+        }
+        // JSONP
+        $jsre = "/=\\?(&|$)/";
+        if (isset($options['dataType']) && $options['dataType'] == 'jsonp') {
+            $jsonpCallbackParam = $options['jsonp'] ? $options['jsonp'] : 'callback';
+            if (strtolower($options['type']) == 'get') {
+                if (!preg_match($jsre, $options['url'])) {
+                    $sep = strpos($options['url'], '?') ? '&' : '?';
+                    $options['url'] .= "$sep$jsonpCallbackParam=?";
+                }
+            } else if ($options['data']) {
+                $jsonp = false;
+                foreach ($options['data'] as $n => $v) {
+                    if ($v == '?') {
+                        $jsonp = true;
+                    }
+                }
+                if (!$jsonp) {
+                    $options['data'][$jsonpCallbackParam] = '?';
+                }
+            }
+            $options['dataType'] = 'json';
+        }
+        if (isset($options['dataType']) && $options['dataType'] == 'json') {
+            $jsonpCallback = 'json_'.md5(microtime());
+            $jsonpData = $jsonpUrl = false;
+            if ($options['data']) {
+                foreach ($options['data'] as $n => $v) {
+                    if ($v == '?') {
+                        $jsonpData = $n;
+                    }
+                }
+            }
+            if (preg_match($jsre, $options['url'])) {
+                $jsonpUrl = true;
+            }
+            if ($jsonpData !== false || $jsonpUrl) {
+                // remember callback name for httpData()
+                $options['_jsonp'] = $jsonpCallback;
+                if ($jsonpData !== false) {
+                    $options['data'][$jsonpData] = $jsonpCallback;
+                }
+                if ($jsonpUrl) {
+                    $options['url'] = preg_replace($jsre, "=$jsonpCallback\\1", $options['url']);
+                }
+            }
+        }
+        $client->setUri($options['url']);
+        $client->setMethod(strtoupper($options['type']));
+    }
 }
