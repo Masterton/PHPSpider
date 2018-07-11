@@ -794,5 +794,96 @@ abstract class Query
         }
         $client->setUri($options['url']);
         $client->setMethod(strtoupper($options['type']));
+        if (isset($options['referer']) && $options['referer']) {
+            $client->setHeaders('Referer', $options['referer']);
+        }
+        $client->setHeaders(array(
+            // 'content-type' => $options['contentType'],
+            'User-Agent' => 'Mozilla/5.0 (X11; U; Linux x86; en-US; rv:1.9.0.5) Gecko'.'/2008122010 Firefox/3.0.5',
+            // TODO custom charset
+            'Accept-Charset' => 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+            // 'Connection' => 'keep-alive',
+            // 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language' => 'en-us,en;q=0.5',
+        ));
+        if ($options['username']) {
+            $client->setAuth($options['username'], $options['password']);
+        }
+        if (isset($options['ifModified']) && $options['ifModified']) {
+            $client->setHeaders("If-Modified-Since", self::$lastModified ? self::$lastModified : "Thu, 01 Jan 1970 00:00:00 GMT");
+        }
+        $client->setHeaders('Accept', isset($options['dataType']) && isset(self::$ajaxSettings['accepts'][$options['dataType']]) ? self::$ajaxSettings['accepts'][$options['dataType']].", */*" : self::$ajaxSettings['accepts']['_default']);
+        // TODO $options['processData']
+        if ($options['data'] instanceof QueryObject) {
+            $serialized = $options['data']->serialize($options['data']);
+            $options['data'] = array();
+            foreach ($serialize as $r) {
+                $options['data'][$r['name']] = $r['value'];
+            }
+        }
+        if (strtolower($options['type']) == 'get') {
+            $client->setParameterGet($options['data']);
+        } else if (strtolower($options['type']) == 'post') {
+            $client->setEncType($options['contentType']);
+            $client->setParameterPost($options['data']);
+        }
+        if (self::$active == 0 && $options['global']) {
+            QueryObject::trigger($documentID, 'ajaxStart');
+        }
+        self::$active++;
+        // beforeSend callback
+        if (isset($options['beforeSend']) && $options['beforeSend']) {
+            Query::callbackRun($options['beforeSend'], array($client));
+        }
+        // ajaxSend event
+        if ($options['global']) {
+            QueryEvents::trigger($documentID, 'ajaxSend', array($client, $options));
+        }
+        if (Query::$debug) {
+            self::debug("{$options['type']}: {$options['url']}\n");
+            self::debug("Options: <pre>".var_export($options, true)."</pre>\n");
+            /*if ($client->getCookieJar()) {
+                self::debug("Cookies: <pre>".var_export($client->getCookieJar()->getMatchingCookies($options['url']), true)."</pre>\n");
+            }*/
+        }
+        // request
+        $response = $client->request();
+        if (Query::$debug) {
+            self::debug('Status: '.$response->getStatus().' / '.$response->getMessage());
+            self::debug($client->getLastRequest());
+            self::debug($response->getHeaders());
+        }
+        if ($response->isSuccessful()) {
+            // XXX tempolary
+            self::$lastModified = $response->getHeader('Last-Modified');
+            $data = self::httpData($response->getBody(), $options['dataType'], $options);
+            if (isset($options['success']) && $options['success']) {
+                Query::callbackRun($options['success'], array($data, $response->getStatus(), $options));
+            }
+            if ($options['global']) {
+                QueryEvents::trigger($documentID, 'ajaxSuccess', array($client, $options));
+            }
+        } else {
+            if (isset($options['error']) && $options['error']) {
+                Query::callbackRun($options['error'], array($client, $response->getStatus(), $response->getMessage()));
+            }
+            if ($options['global']) {
+                QueryEvents::trigger($documentID, 'ajaxError', array($client, /*$response->getStatus(),*/$response->getMessage(), $options));
+            }
+        }
+        if (isset($options['complete']) && $options['complete']) {
+            Query::callbackRun($options['complete'], array($client, $response->getStatus()));
+        }
+        if ($options['global']) {
+            QueryEvents::trigger($documentID, 'ajaxComplete', array($client, $options));
+        }
+        if ($options['global'] && ! --self::$active) {
+            QueryEvents::trigger($documentID, 'ajaxStop');
+        }
+        return $client;
+        /*if (is_null($domId)) {
+            $domId = self::$defaultDocumentID ? self::$defaultDocumentID : false;
+        }
+        return new QueryAjaxResponse($response, $domId);*/
     }
 }
