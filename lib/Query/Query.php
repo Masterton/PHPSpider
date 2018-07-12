@@ -886,4 +886,52 @@ abstract class Query
         }
         return new QueryAjaxResponse($response, $domId);*/
     }
+
+    /**
+     * httpData
+     */
+    protected static function httpData($data, $type, $options)
+    {
+        if (isset($options['dataFilter']) && $options['dataFilter']) {
+            $data = self::callbackRun($options['dataFilter'], array($data, $type));
+        }
+        if (is_string($data)) {
+            if ($type == 'json') {
+                if (isset($options['_jsonp']) && $options['_jsonp']) {
+                    $data = preg_replace('/^\s*\w+\((.*)\)\s*$/s', '$1', $data);
+                }
+                $data = self::parseJSON($data);
+            }
+        }
+        return $data;
+    }
+
+    /**
+     * Enter description here...
+     *
+     * @param array|Query $data
+     */
+    public static function param($data)
+    {
+        return http_build_query($data, null, '&');
+    }
+
+    /**
+     * get
+     */
+    public static function get($url, $data = null, $callback = null, $type = null)
+    {
+        if (!is_array($data)) {
+            $callback = $data;
+            $data = null;
+        }
+        // TODO some array_values on this shit
+        return Query::ajax(array(
+            'type' => 'GET',
+            'url' => $url,
+            'data' => $data,
+            'success' => $callback,
+            'dataType' => $type,
+        ));
+    }
 }
