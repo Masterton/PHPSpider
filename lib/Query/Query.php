@@ -934,4 +934,73 @@ abstract class Query
             'dataType' => $type,
         ));
     }
+
+    /**
+     * post
+     */
+    public static function post($url, $data = null, $callback = null, $type = null)
+    {
+        if (!is_array($data)) {
+            $callback = $data;
+            $data = null;
+        }
+        return Query::ajax(array(
+            'type' => 'POST',
+            'url' => $url,
+            'data' => $data,
+            'success' => $callback,
+            'dataType' => $type,
+        ));
+    }
+
+    /**
+     * getJSON
+     */
+    public static function getJSON($url, $data = null, $callback = null)
+    {
+        if (!is_array($data)) {
+            $callback = $data;
+            $data = null;
+        }
+        // TODO some array_values on this shit
+        return Query::ajax(array(
+            'type' => 'GET',
+            'url' => $url,
+            'data' => $data,
+            'success' => $callback,
+            'dataType' => 'json',
+        ));
+    }
+
+    /**
+     * ajaxSetup
+     */
+    public static function ajaxSetup($options)
+    {
+        self::$ajaxSettings = array_merge(self::$ajaxSettings, $options);
+    }
+
+    /**
+     * ajaxAllowHost
+     */
+    public static function ajaxAllowHost($host1, $host2 = null, $host3 = null)
+    {
+        $loop = is_array($host1) ? $host1 : func_get_args();
+        foreach ($loop as $host) {
+            if ($host && !is_array($host, Query::$ajaxAllowHosts)) {
+                Query::$ajaxAllowedHosts[] = $host;
+            }
+        }
+    }
+
+    /**
+     * ajaxAllowURL
+     */
+    public static function ajaxAllowURL($url1, $url2 = null, $url3 = null)
+    {
+        $loop = is_array($url1) ? $url1 : func_get_args();
+        foreach ($loop as $url) {
+            Query::ajaxAllowHost(parse_url($url, PHP_URL_HOST));
+        }
+    }
 }
