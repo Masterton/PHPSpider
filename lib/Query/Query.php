@@ -1003,4 +1003,67 @@ abstract class Query
             Query::ajaxAllowHost(parse_url($url, PHP_URL_HOST));
         }
     }
+
+    /**
+     * Returns JSON representation of $data.
+     *
+     * @static
+     * @param mixed $data
+     * @return string
+     */
+    public static function toJSON($data)
+    {
+        if (function_exists('json_encode')) {
+            return json_encode($data);
+        }
+        require_once('Zend/Json/Encoder.php');
+        return Zend_Json_Encoder::encode($data);
+    }
+
+    /**
+     * Parses JSON into proper PHP type.
+     *
+     * @static
+     * @param string $json
+     * @return mixed
+     */
+    public static function parseJson($json)
+    {
+        if (function_exists('json_decode')) {
+            $return = json_decode(trim($json), true);
+            // json_decode and UTF8 issues
+            if (isset($return)) {
+                return $return;
+            }
+        }
+        require_once('Zend/Json/Decoder.php');
+        return Zend_Json_Decoder::decode($json);
+    }
+
+    /**
+     * Returns source's document ID.
+     *
+     * @param $source DOMNode|QueryObject
+     * @return string
+     */
+    public static function getDocumentID($source)
+    {
+        if ($source instanceof DOMDOCUMENT) {
+            foreach (Query::$documents as $id => $document) {
+                if ($source->isSameNode($document->document)) {
+                    return $id;
+                }
+            }
+        } else if ($source instanceof DOMNODE) {
+            foreach (Query::$documents as $id => $document) {
+                if ($source->ownerDocument->isSameNode($document->document)) {
+                    return $id;
+                }
+            }
+        } else if ($source instanceof QueryObject) {
+            return $source->getDocumentID();
+        } else if (is_string($source) && isset(Query::$documents[$source])) {
+            return $source;
+        }
+    }
 }
