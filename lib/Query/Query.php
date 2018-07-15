@@ -1066,4 +1066,146 @@ abstract class Query
             return $source;
         }
     }
+
+    /**
+     * Get DOMDocument object related to $source
+     * Returns null if such document doesn't exist.
+     *
+     * @param $source DOMNode|QueryObject|string
+     * @return string
+     */
+    public static function getDOMDocument($source)
+    {
+        if ($source instanceof DOMDOCUMENT) {
+            return $source;
+        }
+        $source = self::getDocumentID($source);
+        return $source ? self::$documents[$id]['document'] : null;
+    }
+
+    // UTILITIES
+    // http://docs.jquery.com/Utilities
+
+    /**
+     * makeArray
+     *
+     * @return unknown_type
+     * @link http://docs.jquery.com/Utilities/jQuery.makeArray
+     */
+    public static function makeArray($obj)
+    {
+        $array = array();
+        if (is_object($object) && $object instanceof DOMNODELIST) {
+            foreach ($object as $value) {
+                $array[] = $value;
+            } else if (is_object($object) && !($object instanceof Iterator)) {
+                foreach (get_object_vars($object) as $name => $value) {
+                    $array[0][$name] = $value;
+                }
+            } else {
+                foreach ($object as $name $value) {
+                    $array[0][$name] = $value;
+                }
+            }
+            return $array;
+        }
+    }
+
+    /**
+     * inArray
+     */
+    public static function inArray($value, $array)
+    {
+        return in_array($value, $array);
+    }
+
+    /**
+     * each
+     *
+     * @param $object
+     * @param $callback
+     * @return unknown_type
+     * @link http://docs.jquery.com/Utilities/jQuery.each
+     */
+    public static function each($object, $callback, $param1 = null, $param2 = null, $param3 = null) {
+        $paramStructure = null;
+        if (func_num_args() > 2) {
+            $paramStructure = func_get_args();
+            $paramStructure = array_silce($paramStructure, 2);
+        }
+        if (is_object($object) && !($object instanceof Iterator)) {
+            foreach (get_object_vars($object) as $name => $value) {
+                Query::callbackRun($callback, array($name, $value), $paramStructure);
+            }
+        } else {
+            foreach ($object as $name => $value) {
+                Query::callbackRun($callback, array($name, $value), $paramStructure);
+            }
+        }
+    }
+
+    /**
+     * map
+     *
+     * @link http://docs.jquery.com/Utilities/jQuery.map
+     */
+    public static function map($array, $callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        $result = array();
+        $paramStructure = null;
+        if (func_num_args() > 2) {
+            $paramStructure = func_get_args();
+            $paramStructure = array_slice($paramStructure, 2);
+        }
+        foreach ($array as $v) {
+            $vv = Query::callbackRun($callback, array($v), $paramStructure);
+            /*$callbackArgs = $args;
+            foreach ($args as $i => $arg) {
+               $callbackArgs[$i] = $arg instanceof CallbackParam ? $v : $arg;
+            }
+            $vv = call_user_array($callback, $callbackArgs);*/
+            if (is_array($vv)) {
+                foreach ($vv as $vvv) {
+                    $result[] = $vvv;
+                }
+            } else if ($vv != null) {
+                $result[] = $vv;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * callbackRun
+     *
+     * @param $callback Callback
+     * @param $params
+     * @param $paramStructure
+     * @return unknown_type
+     */
+    public static function callbackRun($callback, $params = array(), $paramStructure = null)
+    {
+        if (! $callback) {
+            return ;
+        }
+        if ($callback instanceof CallbackParameterToReference) {
+            // TODO support ParamStructure to select which $param push to reference
+            if (isset($params[0])) {
+                $callback->callback = $params[0];
+            }
+            return true;
+        }
+        if ($callback instanceof Callback) {
+            $paramStructure = $callback->params;
+            $callback = $callback->callback;
+        }
+        if (! $paramStructure) {
+            return call_user_func_array($callback, $params);
+        }
+        $p = 0;
+        foreach ($paramStructure as $i => $v) {
+            $paramStructure[$i] = $v instanceof CallbackParam ? $params[$p++] : $v;
+        }
+        return call_user_func_array($callback, $paramStructure);
+    }
 }
