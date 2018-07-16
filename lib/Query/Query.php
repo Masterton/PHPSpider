@@ -1208,4 +1208,32 @@ abstract class Query
         }
         return call_user_func_array($callback, $paramStructure);
     }
+
+    /**
+     * Merge 2 Query objects.
+     *
+     * @param array $one
+     * @param array $two
+     * @protected
+     * @todo node lists, QueryObject
+     */
+    public static function merge($one, $two)
+    {
+        $elements = $one->elements;
+        foreach ($two->elements as $node) {
+            $exists = false;
+            foreach ($elements as $node2) {
+                if ($node2->isSameNode($node)) {
+                    $exists = true;
+                }
+            }
+            if (!$exists) {
+                $elements[] = $node;
+            }
+        }
+        return $elements;
+        // $one = $one->newInstance();
+        // $one->elements = $elements;
+        // return $one;
+    }
 }
