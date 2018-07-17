@@ -1236,4 +1236,33 @@ abstract class Query
         // $one->elements = $elements;
         // return $one;
     }
+
+    /**
+     * grep
+     *
+     * @param $array
+     * @param $callback
+     * @param invert
+     * @return unknown_type
+     * @link http://docs.jquery.com/Utilities/jQuery.grep
+     */
+    public static function grep($array, $callback, $invert = false)
+    {
+        $result = array();
+        foreach ($array as $k => $v) {
+            $r = call_user_func_array($callback, array($v, $k));
+            if ($r === !(bool)$invert) {
+                $result[] = $v;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * unique
+     */
+    public static function unique($array)
+    {
+        return array_unique($array);
+    }
 }
