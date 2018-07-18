@@ -1265,4 +1265,66 @@ abstract class Query
     {
         return array_unique($array);
     }
+
+    /**
+     * isFunction
+     *
+     * @param $function
+     * @return unknown_type
+     * @todo there are problems with non-static methods, second parameter pass it
+     * but doesnt verify is method is really callable
+     */
+    public static function isFunction($function)
+    {
+        return is_callable($function);
+    }
+
+    /**
+     * trim
+     */
+    public static function trim($str)
+    {
+        return trim($str);
+    }
+
+    /**
+     * browserGet
+     *
+     * @param $url
+     * @param $callback
+     * @param $param1
+     * @param $param2
+     * @param $param3
+     * @return QueryObject
+     */
+    public static function browserGet($url, $callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        if (self::plugin('WebBrowser')) {
+            $params = func_get_args();
+            return self::callbackRun(array(self::$plugins, 'browserGet'), $params);
+        } else {
+            self::debug('WebBrowser plugin not available...');
+        }
+    }
+
+    /**
+     * browserPost
+     *
+     * @param $url
+     * @param $data
+     * @param $callback
+     * @param $param1
+     * @param $param2
+     * @param $param3
+     * @return QueryObject
+     */
+    public static function browserPost($url, $data, $callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        if (self::plugin('WebBrowser')) {
+            $params = func_get_args();
+            return self::callbackRun(array(self::$plugins, 'browserPost'), $params);
+        } else {
+            self::debug('WebBrowser plugin not available...');
+        }
+    }
 }
