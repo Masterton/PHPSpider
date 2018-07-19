@@ -1327,4 +1327,88 @@ abstract class Query
             self::debug('WebBrowser plugin not available...');
         }
     }
+
+    /**
+     * browser
+     *
+     * @param $ajaxSettings
+     * @param $callback
+     * @param $param1
+     * @param $param2
+     * @param $param3
+     * @return QueryObject
+     */
+    public static function browser($ajaxSettings, $callback, $param1 = null, $param2 = null, $param3 = null)
+    {
+        if (self::plugin('WebBrowser')) {
+            $params = func_get_args();
+            return self::callbackRun(array(self::$plugins, 'browser'), $params);
+        } else {
+            self::debug('WebBrowser plugin not available...');
+        }
+    }
+
+    /**
+     * php
+     *
+     * @param $code
+     * @return string
+     */
+    public static function php($code)
+    {
+        return self::code('php', $code);
+    }
+
+    /**
+     * code
+     *
+     * @param $type
+     * @param $code
+     * @return string
+     */
+    public static function code($type, $code)
+    {
+        return "<$type><!-- ".trim($code)." --><$type>";
+    }
+
+    /**
+     * __callStatic
+     */
+    public static function __callStatic($method, $params)
+    {
+        return call_user_func_array(
+            array(Query::$plugins, $method),
+            $params
+        );
+    }
+
+    /**
+     * dataSetupNode
+     */
+    protected static function dataSetupNode($node, $documentID)
+    {
+        // search are return if alredy exists
+        foreach (Query::$documents[$documentID]->dataNodes as $dataNode) {
+            if ($node->isSameNode($dataNode)) {
+                return $dataNode;
+            }
+        }
+        // if doesn't, add it
+        Query::$documents[$documentID]->dataNodes[] = $node;
+        return $node;
+    }
+
+    /**
+     * dataRemoveNode
+     */
+    protected static function dataRemoveNode($node, $documentID)
+    {
+        // search are return if alredy exists
+        foreach (Query::$documents[$documentID]->dataNodes as $k => $dataNode) {
+            if ($node->isSameNode($dataNode)) {
+                unset(self::$documents[$documentID]->dataNodes[$k]);
+                unset(self::$documents[$documentID]->$data[$dataNode->dataID]);
+            }
+        }
+    }
 }
