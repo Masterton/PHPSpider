@@ -1411,4 +1411,34 @@ abstract class Query
             }
         }
     }
+
+    /**
+     * data
+     */
+    public static function data($node, $name, $data, $documentID = null)
+    {
+        if (!$documentID) {
+            // TODO check if this works
+            $documentID = self::getDocumentID($node);
+        }
+        $document = Query::$documents[$documentID];
+        $node = self::dataSetupNode($node, $documentID);
+        if (!isset($node->dataID)) {
+            $node->dataID = ++Query::$documents[$documentID]->uid;
+        }
+        $id = $node->dataID;
+        if (!isset($document->data[$id])) {
+            $document->data[$id] = array();
+        }
+        if (!is_null($data)) {
+            $document->data[$id][$name] = $data;
+        }
+        if ($name) {
+            if (isset($document->data[$id][$name])) {
+                return $document->data[$id][$name];
+            }
+        } else {
+            return $id;
+        }
+    }
 }
