@@ -1441,4 +1441,32 @@ abstract class Query
             return $id;
         }
     }
+
+    /**
+     * removeData
+     */
+    public static function removeData($node, $name, $documentID)
+    {
+        if (!$documentID) {
+            // TODO check if this works
+            $documentID = self::getDocumentID($node);
+        }
+        $document = Query::$documents[$documentID];
+        $node = self::dataSetupNode($node, $documentID);
+        $id = $node->dataID;
+        if ($name) {
+            if (isset($document->data[$id][$name])) {
+                unset($document->data[$id][$name]);
+            }
+            $name = null;
+            foreach ($document->data[$id] as $name) {
+                break;
+            }
+            if (!$name) {
+                self::removeData($node, $name, $documentID);
+            }
+        } else {
+            self::dataRemoveNode($node, $documentID);
+        }
+    }
 }
