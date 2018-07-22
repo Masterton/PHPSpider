@@ -13,5 +13,17 @@ namespace PHPSpider\Lib\DOM;
  */
 class Event
 {
-    // TODO
+    /**
+     * Returns a boolean indicating whether the event bubbles up through the DOM or not.
+     *
+     * @var unknown_type
+     */
+    public $bubbles = true;
+
+    /**
+     * Returns a boolean indicating whether the event is cancelable.
+     *
+     * @var unknown_type
+     */
+    public $cancelable = true;
 }
