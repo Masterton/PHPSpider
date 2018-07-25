@@ -13,5 +13,9 @@ namespace PHPSpider\Lib\DOM;
  */
 class DocumentWrapper
 {
-    // TODO
+    /**
+     * @var Document
+     */
+    public $document;
+    public $id;
 }

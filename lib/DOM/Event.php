@@ -51,4 +51,76 @@ class Event
      * @link http://developer.mozilla.org/en/DOM/event.eventPhase
      */
     public $eventPhase; // ???
+
+    /**
+     * The explicit original target of the event (Mozilla-specific).
+     *
+     * NOT IMPLEMENTED
+     *
+     * @var unknown_type
+     */
+    public $explicitOriginalTarget; // moz only
+
+    /**
+     * The original target of the event, before any retargetings (Mozilla-specific).
+     *
+     * NOT IMPLEMENTED
+     *
+     * @var unknown_type
+     */
+    public $originalTarget; // moz only
+
+    /**
+     * Identifies a secondary target for the event.
+     *
+     * @var unknown_type
+     */
+    public $relatedTarget;
+
+    /**
+     * Returns a reference to the target to which the event was originally dispatched.
+     *
+     * @var unknown_type
+     */
+    public $target;
+
+    /**
+     * Returns the time that the event was created.
+     *
+     * @var unknown_type
+     */
+    public $timeStamp;
+
+    /**
+     * Retuens the name of the event (case-insensitive).
+     */
+    public $type;
+    public $runDefault = true;
+    public $data = null;
+
+    public function __construct($data)
+    {
+    	foreach ($data as $k => $v) {
+    		$this->$k = $v;
+    	}
+    	if (!$this->timeStamp) {
+    		$this->timeStamp = time();
+    	}
+    }
+
+    /**
+     * Cancels the event (if it is cancelable).
+     */
+    public function preventDefault()
+    {
+    	$this->runDefault = false;
+    }
+
+    /**
+     * Stops the propagation of events further along in the DOM.
+     */
+    public function stopPropagation()
+    {
+    	$this->bubbles = false;
+    }
 }
