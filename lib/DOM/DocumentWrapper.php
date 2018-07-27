@@ -32,4 +32,32 @@ class DocumentWrapper
     public $events = array();
     public $eventsNodes = array();
     public $eventsGlobal = array();
+
+    /**
+     * @todo iframes support http://code.google.com/p/phpquery/issues/detail?id=28
+     *
+     * @var unknown_type
+     */
+    public $frames = array();
+
+    /**
+     * Document root, by default equals to document itself.
+     * Used by documentFragments.
+     *
+     * @var DOMNode
+     */
+    public $root;
+    public $isDocumentFragment;
+    public $isXML = false;
+    public $isXHTML = false;
+    public $isHTML = false;
+    public $charset;
+
+    public function __construct($markup = null, $contentType = null, $newDocumentID = null)
+    {
+    	if (isset($markup)) {
+    		$this->load($markup, $contentType, $newDocumentID);
+    	}
+    	$this->id = $newDocumentID ? $newDocumentID : md5(microtime());
+    }
 }
