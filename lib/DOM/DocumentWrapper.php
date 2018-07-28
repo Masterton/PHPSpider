@@ -60,4 +60,31 @@ class DocumentWrapper
     	}
     	$this->id = $newDocumentID ? $newDocumentID : md5(microtime());
     }
+
+    /**
+     * load
+     */
+    public function load($markup, $contentType = null, $newDocumentID = null)
+    {
+    	// Query::$documents[$id] = $this;
+    	$this->contentType = strtolower($contentType);
+    	if ($markup instanceof DOMDOCUMENT) {
+    		$this->document = $markup;
+    		$this->root = $this->document;
+    		$this->charset = $this->document->encoding;
+    		// TODO isDocumentFragment
+    	} else {
+    		$loaded = $this->loadMarkup($markup);
+    	}
+    	if ($loaded) {
+    		// $this->document->formatOutput = true;
+    		$this->document->preserveWhiteSpace = true;
+    		$this->xpath = new DOMXpath($this->document);
+    		$this->afterMarkupLoad();
+    		return true;
+    		// remember last loaded document
+    		// return Query::selectDocument($id);
+    	}
+    	return false;
+    }
 }
