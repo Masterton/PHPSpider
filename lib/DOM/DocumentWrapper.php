@@ -87,4 +87,14 @@ class DocumentWrapper
     	}
     	return false;
     }
+
+    /**
+     * afterMarkupLoad
+     */
+    protected function afterMarkupLoad()
+    {
+    	if ($this->isXHTML) {
+    		$this->xpath->registerNamespace("html", "http://www.w3.org/1999/xhtml");
+    	}
+    }
 }
