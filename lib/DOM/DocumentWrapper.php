@@ -97,4 +97,20 @@ class DocumentWrapper
     		$this->xpath->registerNamespace("html", "http://www.w3.org/1999/xhtml");
     	}
     }
+
+    /**
+     * loadMarkup
+     */
+    protected function loadMarkup($markup)
+    {
+    	// TODO
+    }
+
+    /**
+     * loadMarkupReset
+     */
+    protected function loadMarkupReset()
+    {
+    	$this->isXML = $this->isXHTML = $this->isHTML = false;
+    }
 }
