@@ -103,7 +103,18 @@ class DocumentWrapper
      */
     protected function loadMarkup($markup)
     {
-    	// TODO
+    	$loaded = false;
+    	if ($this->contentType) {
+    		self::debug("Load markup for content type {$this->contentType}");
+    		// content determined by contentType
+    		list($contentType, $charset) = $this->contentTypeToArray($this->contentType);
+    		switch ($contentType) {
+    			case 'text/html':
+    				Query::debug("Loading HTML, content type '{$this->contentType}'");
+    				$loaded = $this->loadMarkupHTML($markup, $charset);
+    				break;
+    		}
+    	}
     }
 
     /**
