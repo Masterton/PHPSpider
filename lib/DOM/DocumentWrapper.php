@@ -113,8 +113,34 @@ class DocumentWrapper
     				Query::debug("Loading HTML, content type '{$this->contentType}'");
     				$loaded = $this->loadMarkupHTML($markup, $charset);
     				break;
+    			case 'text/html':
+    			case 'application/xhtml+xml':
+    				Query::debug("Loading XML, content type '{$this->contentType}'");
+    				$loaded = $this->loadMarkupXML($markup, $charset);
+    				break;
+    			default:
+    				// for feeds or anything that sometimes doesn't use text/xml
+    				if (strpos('xml', $this->contentType) !== false) {
+    					Query::debug("Loading XML, content type '{$this->contentType}'");
+    					$loaded = $this->loadMarkupXML($markup, $charset);
+    				} else {
+    					Query::debug("Could not determine document type from content type '{$this->contentType}'");
+    				}
+    		}
+    	} else {
+    		// content type autodetection
+    		if ($this->isXML($markup)) {
+    			Query::debug("Loading XML, isXML() == true");
+    			if (!$loaded && $this->isXHTML) {
+    				Query::debug('Loading as XML failed, trying to load as HTML, isXHTML == true');
+    				$loaded = $this->loadMarkupHTML($markup);
+    			}
+    		} else {
+    			Query::debug("Loading HTML, isXML() == false");
+    			$loaded = $this->loadMarkupHTML($markup);
     		}
     	}
+    	return $loaded;
     }
 
     /**
