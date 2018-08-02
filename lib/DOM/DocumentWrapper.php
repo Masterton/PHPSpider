@@ -150,4 +150,19 @@ class DocumentWrapper
     {
     	$this->isXML = $this->isXHTML = $this->isHTML = false;
     }
+
+    /**
+     * documentCreate
+     */
+    protected function documentCreate($charset, $version = '1.0')
+    {
+    	if (!$version) {
+    		$version = '1.0';
+    	}
+    	$this->document = new DOMDocument($version, $charset);
+    	$this->charset = $this->document->encoding;
+    	// $this->document->encoding = $charset;
+    	$this->document->formatOutput = true;
+    	$this->document->preserveWhiteSpace = true;
+    }
 }
