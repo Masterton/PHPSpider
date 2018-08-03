@@ -165,4 +165,20 @@ class DocumentWrapper
     	$this->document->formatOutput = true;
     	$this->document->preserveWhiteSpace = true;
     }
+
+    /**
+     * loadMarkupHTML
+     */
+    protected function loadMarkupHTML($markup, $requestedCharset = null)
+    {
+    	if (Query::$debug) {
+    		Query::debug("Full markup load (HTML): " . substr($markup, 0, 250));
+    	}
+    	$this->loadMarkupReset();
+    	$this->isHTML = true;
+    	if (!isset($this->isDocumentFragment)) {
+    		$this->isDocumentFragment = self::isDocumentFragmentHTML($markup);
+    	}
+    	$charset = null;
+    }
 }
