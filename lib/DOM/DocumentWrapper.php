@@ -248,4 +248,31 @@ class DocumentWrapper
         }
         return $return;
     }
+
+    /**
+     * loadMarkupXML
+     */
+    protected function loadMarkupXML($markup, $requestedCharset = null)
+    {
+        if (Query::$debug) {
+            Query::debug('Full markup load (XML): '.substr($markup, 0, 250));
+        }
+        $this->loadMarkupReset();
+        $this->isXML = true;
+        // check agains XHTML in contentType or markup
+        $isContentTypeXHTML = $this->isXHTML();
+        $isMarkupXHTML = $this->isXHTML($markup);
+        if ($isContentTypeXHTML || $isMarkupXHTML) {
+            self::debug('Full markup load (XML), XHTML detected');
+            $this->isXHTML = true;
+        }
+        // determine document fragment
+        if (!isset($this->isDocumentFragment)) {
+            $this->isDocumentFragment = $this->isXHTML ? self::isDocumentFragmentXHTML($markup) : self::isDocumentFragmentXML($markup);
+        }
+        // this charset will be used
+        $charset = null;
+        // charset from XML declaration @var string
+        $documentCharset = $this->charsetFromXML($markup);
+    }
 }
