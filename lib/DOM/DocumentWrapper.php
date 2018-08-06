@@ -274,5 +274,78 @@ class DocumentWrapper
         $charset = null;
         // charset from XML declaration @var string
         $documentCharset = $this->charsetFromXML($markup);
+        if (!$documentCharset) {
+            if ($this->isXHTML) {
+                // this is XHTML, try to get charset from content-type meta herader
+                $documentCharset = $this->charsetFromHTML($markup);
+                if ($documentCharset) {
+                    phpQuery::debug("Full markup load (XML), appending XHTML charset '$documentCharset'");
+                    $this->charsetAppendToXML($markup, $documentCharset);
+                    $charset = $documentCharset;
+                }
+            }
+            if (! $documentCharset) {
+                // if still no document charset...
+                $charset = $requestedCharset;
+            }
+        } else if ($requestedCharset) {
+            $charset = $requestedCharset;
+        }
+        if (! $charset) {
+            $charset = phpQuery::$defaultCharset;
+        }
+        if ($requestedCharset && $documentCharset && $requestedCharset != $documentCharset) {
+            // TODO place for charset conversion
+            // $charset = $requestedCharset;
+        }
+        $return = false;
+        if ($this->isDocumentFragment) {
+            Query::debug("Full markup load (XML), DocumentFragment detected, using charset '$charset'");
+            $return = $this->documentFragmentLoadMarkup($this, $charset, $markup);
+        } else {
+            // FIXME ???
+            if ($isContentTypeXHTML && ! $isMarkupXHTML)
+            if (! $documentCharset) {
+                phpQuery::debug("Full markup load (XML), appending charset '$charset'");
+                $markup = $this->charsetAppendToXML($markup, $charset);
+            }
+            // see http://pl2.php.net/manual/en/book.dom.php#78929
+            // LIBXML_DTDLOAD (>= PHP 5.1)
+            // does XML ctalogues works with LIBXML_NONET
+            // $this->document->resolveExternals = true;
+            // TODO test LIBXML_COMPACT for performance improvement
+            // create document
+            $this->documentCreate($charset);
+            if (phpversion() < 5.1) {
+                $this->document->resolveExternals = true;
+                $return = phpQuery::$debug === 2
+                    ? $this->document->loadXML($markup)
+                    : @$this->document->loadXML($markup);
+            } else {
+                /** @link http://pl2.php.net/manual/en/libxml.constants.php */
+                $libxmlStatic = phpQuery::$debug === 2
+                    ? LIBXML_DTDLOAD|LIBXML_DTDATTR|LIBXML_NONET
+                    : LIBXML_DTDLOAD|LIBXML_DTDATTR|LIBXML_NONET|LIBXML_NOWARNING|LIBXML_NOERROR;
+                $return = $this->document->loadXML($markup, $libxmlStatic);
+                /*if (! $return) {
+                    $return = $this->document->loadHTML($markup);
+                }*/
+            }
+            if ($return) {
+                $this->root = $this->document;
+            }
+        }
+        if ($return) {
+            if (!$this->contentType) {
+                if ($this->isXHTML) {
+                    $this->contentType = 'application/xhtml+xml';
+                } else {
+                    $this->contentType = 'text/xml';
+                }
+            }
+            return $return;
+        } else {
+            throw new Exception("Error loading XML markup");
+        }
     }
 }
