@@ -348,4 +348,18 @@ class DocumentWrapper
             throw new Exception("Error loading XML markup");
         }
     }
+
+    /**
+     * isXHTML
+     */
+    protected function isXHTML($markup = null)
+    {
+        if (!isset($markup)) {
+            return strpos($this->contentType, 'xhtml') !== false;
+        }
+        // XXX ok ?
+        return strpos($markup, "<!DOCTYPE html") !== false;
+        // return stripos($doctype, 'xhtml') !== false;
+        // $doctype = isset($dom->doctype) && is_object($dom->doctype) ? $dom->doctype->publicId : self::$defaultDoctype;
+    }
 }
