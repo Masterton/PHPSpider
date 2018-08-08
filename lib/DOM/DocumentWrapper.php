@@ -362,4 +362,13 @@ class DocumentWrapper
         // return stripos($doctype, 'xhtml') !== false;
         // $doctype = isset($dom->doctype) && is_object($dom->doctype) ? $dom->doctype->publicId : self::$defaultDoctype;
     }
+
+    /**
+     * isXML
+     */
+    protected function isXML($markup)
+    {
+        // return strpos($markup, '<?xml') !== false && stripos($markup, 'xhtml') === false;
+        return strpos(substr($markup, 0, 100), '<'.'?xml') !== false;
+    }
 }
