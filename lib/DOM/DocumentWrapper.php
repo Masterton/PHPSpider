@@ -371,4 +371,20 @@ class DocumentWrapper
         // return strpos($markup, '<?xml') !== false && stripos($markup, 'xhtml') === false;
         return strpos(substr($markup, 0, 100), '<'.'?xml') !== false;
     }
+
+    /**
+     * contentTypeToArray
+     */
+    protected function contentTypeToArray($contentType)
+    {
+        $matches = explode(';', trim(strtolower($contentType)));
+        if (isset($matches[1])) {
+            $matches[1] = explode('=', $matches[1]);
+            // strip 'charset='
+            $matches[1] = isset($matches[1][1]) && trim($matches[1][1]) ? $matches[1][1] : $matches[1][0];
+        } else {
+            $matches[1] = null;
+        }
+        return $matches;
+    }
 }
