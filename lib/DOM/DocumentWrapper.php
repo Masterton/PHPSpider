@@ -407,4 +407,13 @@ class DocumentWrapper
         }
         return $this->contentTypeToArray($matches[2]);
     }
+
+    /**
+     * charsetFromHTML
+     */
+    protected function charsetFromHTML($markup)
+    {
+        $contentType = $this->contentTypeFromHTML($markup);
+        return $contentType[1];
+    }
 }
