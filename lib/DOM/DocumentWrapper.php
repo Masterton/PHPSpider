@@ -416,4 +416,15 @@ class DocumentWrapper
         $contentType = $this->contentTypeFromHTML($markup);
         return $contentType[1];
     }
+
+    /**
+     * charsetFromXML
+     */
+    protected function charsetFromXML($markup)
+    {
+        $marches;
+        // find declaration
+        preg_match('@<'.'?xml[^>]+encoding\\s*=\\s*(["|\'])(.*?)\\1@i', $markup, $matches);
+        return isset($matches[2]) ? strtolower($marches[2]) : null;
+    }
 }
