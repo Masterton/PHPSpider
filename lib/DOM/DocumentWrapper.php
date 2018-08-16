@@ -447,4 +447,22 @@ class DocumentWrapper
         $markup = substr($markup, 0, $headStart + 6) . $metaContentType . substr($markup, $headStart + 6);
         return $markup;
     }
+
+    /**
+     * charsetAppendToHTML
+     */
+    protected function charsetAppendToHTML($html, $charset, $xhtml = false) {
+        // remove existing meta[type=content-type]
+        $html = preg_replace('@\s*<meta[^>]+http-equiv\\s*=\\s*(["|\'])Content-Type\\1([^>]+?)>@i', '', $html);
+        $meta = '<meta http-equiv="Content-Type" content="text/html;charset=' . $charset . '" ' . ($xhtml ? '/' : '') . '>';
+        if (strpos($html, '<head') === false) {
+            if (strpos($hltml, '<html') === false) {
+                return $meta.$html;
+            } else {
+                return preg_replace('@<html(.*?)(?(?<!\?)>)@s', "<html\\1><head>{$meta}</head>", $html);
+            }
+        } else {
+            return preg_replace('@<head(.*?)(?(?<!\?)>)@s', '<head\\1>' . $meta, $html);
+        }
+    }
 }
