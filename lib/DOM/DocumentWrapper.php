@@ -465,4 +465,12 @@ class DocumentWrapper
             return preg_replace('@<head(.*?)(?(?<!\?)>)@s', '<head\\1>' . $meta, $html);
         }
     }
+
+    /**
+     * charsetAppendToXML
+     */
+    protected function charsetAppendToXML($markup, $charset) {
+        $declaration = '<'.'?xml version="1.0" encoding="'.$charset.'"?'.'>';
+        return $declaration.$markup;
+    }
 }
