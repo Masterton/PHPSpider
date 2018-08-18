@@ -473,4 +473,11 @@ class DocumentWrapper
         $declaration = '<'.'?xml version="1.0" encoding="'.$charset.'"?'.'>';
         return $declaration.$markup;
     }
+
+    /**
+     * isDocumentFragmentHTML
+     */
+    public static function isDocumentFragmentHTML($markup) {
+        return stripos($markup, '<html') === false && stripos($markup, '<!doctype') === false;
+    }
 }
