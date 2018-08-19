@@ -480,4 +480,11 @@ class DocumentWrapper
     public static function isDocumentFragmentHTML($markup) {
         return stripos($markup, '<html') === false && stripos($markup, '<!doctype') === false;
     }
+
+    /**
+     * isDocumentFragmentXML
+     */
+    public static function isDocumentFragmentXML($markup) {
+        return stripos($markup, '<'.'?xml') === false;
+    }
 }
