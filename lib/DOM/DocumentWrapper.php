@@ -487,4 +487,11 @@ class DocumentWrapper
     public static function isDocumentFragmentXML($markup) {
         return stripos($markup, '<'.'?xml') === false;
     }
+
+    /**
+     * isDocumentFragmentXHTML
+     */
+    public static function isDocumentFragmentXHTML($markup) {
+        return self::isDocumentFragmentHTML($markup);
+    }
 }
