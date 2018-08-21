@@ -494,4 +494,67 @@ class DocumentWrapper
     public static function isDocumentFragmentXHTML($markup) {
         return self::isDocumentFragmentHTML($markup);
     }
+
+    /**
+     * importAttr
+     */
+    public function importAttr($value) {
+        // TODO
+    }
+
+    /**
+     * import
+     *
+     * @param $source
+     * @param $target
+     * @param $sourceCharset
+     * @return array Array of imported nodes.
+     */
+    public function import($source, $sourceCharset = null) {
+        // TODO charset conversions
+        $return = array();
+        if ($source instanceof DOMNODE && !($source instanceof DOMNODELIST)) {
+            $source = array($source);
+        }
+        /*if (is_array($source)) {
+            foreach($source as $node) {
+                if (is_string($node)) {
+                    // string markup
+                    $fake = $this->documentFragmentCreate($node, $sourceCharset);
+                    if ($fake === false) {
+                        throw new Exception("Error loading documentFragment markup");
+                    } else {
+                        $return = array_merge($return, $this->import($fake->root->childNodes));
+                    }
+                } else {
+                    $return[] = $this->document->importNode($node, true);
+                }
+            }
+            return $return;
+        } else {
+            // string markup
+            $fake = $this->documentFragmentCreate($source, $sourceCharset);
+            if ($fake === false) {
+                throw new Exception("Error loading documentFragment markup");
+            } else {
+                return $this->import($fake->root->childNodes);
+            }
+        }*/
+        if (is_array($source) || $source instanceof DOMNODELIST) {
+            // dom nodes
+            self::debug('Importing nodes to document');
+            foreach($source as $node) {
+                $return[] = $this->document->importNode($node, true);
+            }
+        } else {
+            // string markup
+            $fake = $this->documentFragmentCreate($source, $sourceCharset);
+            if ($fake === false) {
+                throw new Exception("Error loading documentFragment markup");
+            } else {
+                return $this->import($fake->root->childNodes);
+            }
+        }
+        return $return;
+    }
 }
