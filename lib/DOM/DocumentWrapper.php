@@ -557,4 +557,41 @@ class DocumentWrapper
         }
         return $return;
     }
+
+    /**
+     * Creates new document fragment.
+     *
+     * @param $source
+     * @return DOMDocumentWrapper
+     */
+    protected function documentFragmentCreate($source, $charset = null) {
+        $fake = new DOMDocumentWrapper();
+        $fake->contentType = $this->contentType;
+        $fake->isXML = $this->isXML;
+        $fake->isHTML = $this->isHTML;
+        $fake->isXHTML = $this->isXHTML;
+        $fake->root = $fake->document;
+        if (! $charset) {
+            $charset = $this->charset;
+        }
+        // $fake->documentCreate($this->charset);
+        if ($source instanceof DOMNODE && !($source instanceof DOMNODELIST)) {
+            $source = array($source);
+        }
+        if (is_array($source) || $source instanceof DOMNODELIST) {
+            // dom nodes
+            // load fake document
+            if (! $this->documentFragmentLoadMarkup($fake, $charset)) {
+                return false;
+            }
+            $nodes = $fake->import($source);
+            foreach($nodes as $node) {
+                $fake->root->appendChild($node);
+            }
+        } else {
+            // string markup
+            $this->documentFragmentLoadMarkup($fake, $charset, $source);
+        }
+        return $fake;
+    }
 }
