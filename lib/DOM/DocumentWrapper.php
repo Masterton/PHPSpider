@@ -594,4 +594,52 @@ class DocumentWrapper
         }
         return $fake;
     }
+
+    /**
+     *
+     * @param $document DOMDocumentWrapper
+     * @param $markup
+     * @return $document
+     */
+    private function documentFragmentLoadMarkup($fragment, $charset, $markup = null) {
+        // TODO error handling
+        // TODO copy doctype
+        // tempolary turn off
+        $fragment->isDocumentFragment = false;
+        if ($fragment->isXML) {
+            if ($fragment->isXHTML) {
+                // add FAKE element to set default namespace
+                $fragment->loadMarkupXML('<?xml version="1.0" encoding="'.$charset.'"?>'
+                    .'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
+                    .'"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
+                    .'<fake xmlns="http://www.w3.org/1999/xhtml">'.$markup.'</fake>');
+                $fragment->root = $fragment->document->firstChild->nextSibling;
+            } else {
+                $fragment->loadMarkupXML('<?xml version="1.0" encoding="'.$charset.'"?><fake>'.$markup.'</fake>');
+                $fragment->root = $fragment->document->firstChild;
+            }
+        } else {
+            $markup2 = phpQuery::$defaultDoctype.'<html><head><meta http-equiv="Content-Type" content="text/html;charset='
+                .$charset.'"></head>';
+            $noBody = strpos($markup, '<body') === false;
+            if ($noBody) {
+                $markup2 .= '<body>';
+            }
+            $markup2 .= $markup;
+            if ($noBody) {
+                $markup2 .= '</body>';
+            }
+            $markup2 .= '</html>';
+            $fragment->loadMarkupHTML($markup2);
+            // TODO resolv body tag merging issue
+            $fragment->root = $noBody
+                ? $fragment->document->firstChild->nextSibling->firstChild->nextSibling
+                : $fragment->document->firstChild->nextSibling->firstChild->nextSibling;
+        }
+        if (! $fragment->root) {
+            return false;
+        }
+        $fragment->isDocumentFragment = true;
+        return true;
+    }
 }
