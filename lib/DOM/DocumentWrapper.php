@@ -642,4 +642,30 @@ class DocumentWrapper
         $fragment->isDocumentFragment = true;
         return true;
     }
+
+    /**
+     * documentFragmentToMarkup
+     */
+    protected function documentFragmentToMarkup($fragment) {
+        phpQuery::debug('documentFragmentToMarkup');
+        $tmp = $fragment->isDocumentFragment;
+        $fragment->isDocumentFragment = false;
+        $markup = $fragment->markup();
+        if ($fragment->isXML) {
+            $markup = substr($markup, 0, strrpos($markup, '</fake>'));
+            if ($fragment->isXHTML) {
+                $markup = substr($markup, strpos($markup, '<fake')+43);
+            } else {
+                $markup = substr($markup, strpos($markup, '<fake>')+6);
+            }
+        } else {
+            $markup = substr($markup, strpos($markup, '<body>')+6);
+            $markup = substr($markup, 0, strrpos($markup, '</body>'));
+        }
+        $fragment->isDocumentFragment = $tmp;
+        if (phpQuery::$debug) {
+            phpQuery::debug('documentFragmentToMarkup: '.substr($markup, 0, 150));
+        }
+        return $markup;
+    }
 }
