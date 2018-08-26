@@ -668,4 +668,86 @@ class DocumentWrapper
         }
         return $markup;
     }
+
+    /**
+     * Return document markup, starting with optional $nodes as root.
+     *
+     * @param $nodes    DOMNode|DOMNodeList
+     * @return string
+     */
+    public function markup($nodes = null, $innerMarkup = false) {
+        if (isset($nodes) && count($nodes) == 1 && $nodes[0] instanceof DOMDOCUMENT) {
+            $nodes = null;
+        }
+        if (isset($nodes)) {
+            $markup = '';
+            if (!is_array($nodes) && !($nodes instanceof DOMNODELIST) ) {
+                $nodes = array($nodes);
+            }
+            if ($this->isDocumentFragment && ! $innerMarkup) {
+                foreach($nodes as $i => $node) {
+                    if ($node->isSameNode($this->root)) {
+                    //  var_dump($node);
+                        $nodes = array_slice($nodes, 0, $i)
+                            + phpQuery::DOMNodeListToArray($node->childNodes)
+                            + array_slice($nodes, $i+1);
+                    }
+                }
+            }
+            if ($this->isXML && ! $innerMarkup) {
+                self::debug("Getting outerXML with charset '{$this->charset}'");
+                // we need outerXML, so we can benefit from
+                // $node param support in saveXML()
+                foreach($nodes as $node) {
+                    $markup .= $this->document->saveXML($node);
+                }
+            } else {
+                $loop = array();
+                if ($innerMarkup) {
+                    foreach($nodes as $node) {
+                        if ($node->childNodes) {
+                            foreach($node->childNodes as $child)
+                                $loop[] = $child;
+                        } else {
+                            $loop[] = $node;
+                        }
+                    }
+                } else {
+                    $loop = $nodes;
+                }
+                self::debug("Getting markup, moving selected nodes (".count($loop).") to new DocumentFragment");
+                $fake = $this->documentFragmentCreate($loop);
+                $markup = $this->documentFragmentToMarkup($fake);
+            }
+            if ($this->isXHTML) {
+                self::debug("Fixing XHTML");
+                $markup = self::markupFixXHTML($markup);
+            }
+            self::debug("Markup: ".substr($markup, 0, 250));
+            return $markup;
+        } else {
+            if ($this->isDocumentFragment) {
+                // documentFragment, html only...
+                self::debug("Getting markup, DocumentFragment detected");
+                // return $this->markup(
+                //         $this->document->getElementsByTagName('body')->item(0)
+                //     $this->document->root, true
+                // );
+                $markup = $this->documentFragmentToMarkup($this);
+                // no need for markupFixXHTML, as it's done thought markup($nodes) method
+                return $markup;
+            } else {
+                self::debug("Getting markup (".($this->isXML?'XML':'HTML')."), final with charset '{$this->charset}'");
+                $markup = $this->isXML
+                    ? $this->document->saveXML()
+                    : $this->document->saveHTML();
+                if ($this->isXHTML) {
+                    self::debug("Fixing XHTML");
+                    $markup = self::markupFixXHTML($markup);
+                }
+                self::debug("Markup: ".substr($markup, 0, 250));
+                return $markup;
+            }
+        }
+    }
 }
