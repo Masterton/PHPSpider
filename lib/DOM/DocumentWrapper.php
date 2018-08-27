@@ -750,4 +750,14 @@ class DocumentWrapper
             }
         }
     }
+
+    /**
+     * markupFixXHTML
+     */
+    protected static function markupFixXHTML($markup) {
+        $markup = self::expandEmptyTag('script', $markup);
+        $markup = self::expandEmptyTag('select', $markup);
+        $markup = self::expandEmptyTag('textarea', $markup);
+        return $markup;
+    }
 }
