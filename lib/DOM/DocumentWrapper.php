@@ -760,4 +760,11 @@ class DocumentWrapper
         $markup = self::expandEmptyTag('textarea', $markup);
         return $markup;
     }
+
+    /**
+     * debug
+     */
+    public static function debug($text) {
+        phpQuery::debug($text);
+    }
 }
