@@ -434,7 +434,8 @@ class DocumentWrapper
      * @link http://code.google.com/p/phpquery/issues/detail?id=80
      * @param $html
      */
-    protected function charsetFixHTML($markup) {
+    protected function charsetFixHTML($markup)
+    {
         $matches = array();
         // find meta tag
         preg_match('@\s*<meta[^>]+http-equiv\\s*=\\s*(["|\'])Content-Type\\1([^>]+?)>@i', $markup, $matches, PREG_OFFSET_CAPTURE);
@@ -451,7 +452,8 @@ class DocumentWrapper
     /**
      * charsetAppendToHTML
      */
-    protected function charsetAppendToHTML($html, $charset, $xhtml = false) {
+    protected function charsetAppendToHTML($html, $charset, $xhtml = false)
+    {
         // remove existing meta[type=content-type]
         $html = preg_replace('@\s*<meta[^>]+http-equiv\\s*=\\s*(["|\'])Content-Type\\1([^>]+?)>@i', '', $html);
         $meta = '<meta http-equiv="Content-Type" content="text/html;charset=' . $charset . '" ' . ($xhtml ? '/' : '') . '>';
@@ -469,7 +471,8 @@ class DocumentWrapper
     /**
      * charsetAppendToXML
      */
-    protected function charsetAppendToXML($markup, $charset) {
+    protected function charsetAppendToXML($markup, $charset)
+    {
         $declaration = '<'.'?xml version="1.0" encoding="'.$charset.'"?'.'>';
         return $declaration.$markup;
     }
@@ -477,28 +480,32 @@ class DocumentWrapper
     /**
      * isDocumentFragmentHTML
      */
-    public static function isDocumentFragmentHTML($markup) {
+    public static function isDocumentFragmentHTML($markup)
+    {
         return stripos($markup, '<html') === false && stripos($markup, '<!doctype') === false;
     }
 
     /**
      * isDocumentFragmentXML
      */
-    public static function isDocumentFragmentXML($markup) {
+    public static function isDocumentFragmentXML($markup)
+    {
         return stripos($markup, '<'.'?xml') === false;
     }
 
     /**
      * isDocumentFragmentXHTML
      */
-    public static function isDocumentFragmentXHTML($markup) {
+    public static function isDocumentFragmentXHTML($markup)
+    {
         return self::isDocumentFragmentHTML($markup);
     }
 
     /**
      * importAttr
      */
-    public function importAttr($value) {
+    public function importAttr($value)
+    {
         // TODO
     }
 
@@ -510,7 +517,8 @@ class DocumentWrapper
      * @param $sourceCharset
      * @return array Array of imported nodes.
      */
-    public function import($source, $sourceCharset = null) {
+    public function import($source, $sourceCharset = null)
+    {
         // TODO charset conversions
         $return = array();
         if ($source instanceof DOMNODE && !($source instanceof DOMNODELIST)) {
@@ -564,7 +572,8 @@ class DocumentWrapper
      * @param $source
      * @return DOMDocumentWrapper
      */
-    protected function documentFragmentCreate($source, $charset = null) {
+    protected function documentFragmentCreate($source, $charset = null)
+    {
         $fake = new DOMDocumentWrapper();
         $fake->contentType = $this->contentType;
         $fake->isXML = $this->isXML;
@@ -601,7 +610,8 @@ class DocumentWrapper
      * @param $markup
      * @return $document
      */
-    private function documentFragmentLoadMarkup($fragment, $charset, $markup = null) {
+    private function documentFragmentLoadMarkup($fragment, $charset, $markup = null)
+    {
         // TODO error handling
         // TODO copy doctype
         // tempolary turn off
@@ -646,7 +656,8 @@ class DocumentWrapper
     /**
      * documentFragmentToMarkup
      */
-    protected function documentFragmentToMarkup($fragment) {
+    protected function documentFragmentToMarkup($fragment)
+    {
         phpQuery::debug('documentFragmentToMarkup');
         $tmp = $fragment->isDocumentFragment;
         $fragment->isDocumentFragment = false;
@@ -675,7 +686,8 @@ class DocumentWrapper
      * @param $nodes    DOMNode|DOMNodeList
      * @return string
      */
-    public function markup($nodes = null, $innerMarkup = false) {
+    public function markup($nodes = null, $innerMarkup = false)
+    {
         if (isset($nodes) && count($nodes) == 1 && $nodes[0] instanceof DOMDOCUMENT) {
             $nodes = null;
         }
@@ -754,7 +766,8 @@ class DocumentWrapper
     /**
      * markupFixXHTML
      */
-    protected static function markupFixXHTML($markup) {
+    protected static function markupFixXHTML($markup)
+    {
         $markup = self::expandEmptyTag('script', $markup);
         $markup = self::expandEmptyTag('select', $markup);
         $markup = self::expandEmptyTag('textarea', $markup);
@@ -766,5 +779,32 @@ class DocumentWrapper
      */
     public static function debug($text) {
         phpQuery::debug($text);
+    }
+
+    /**
+     * expandEmptyTag
+     *
+     * @param $tag
+     * @param $xml
+     * @return unknown_type
+     * @author mjaque at ilkebenson dot com
+     * @link http://php.net/manual/en/domdocument.savehtml.php#81256
+     */
+    public static function expandEmptyTag($tag, $xml)
+    {
+        $indice = 0;
+        while ($indice< strlen($xml)) {
+            $pos = strpos($xml, "<$tag ", $indice);
+            if ($pos) {
+                $posCierre = strpos($xml, ">", $pos);
+                if ($xml[$posCierre-1] == "/") {
+                    $xml = substr_replace($xml, "></$tag>", $posCierre-1, 2);
+                }
+                $indice = $posCierre;
+            } else {
+                break;
+            }
+        }
+        return $xml;
     }
 }
