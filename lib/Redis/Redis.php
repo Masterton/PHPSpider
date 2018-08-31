@@ -13,5 +13,22 @@ namespace PHPSpider\Lib\Redis;
  */
 class Redis
 {
-    // TODO
+    /**
+     * redis链接标识符号
+     */
+    protected static $redis = NULL;
+
+    /**
+     * redis配置数组
+     */
+    protected static $configs = array();
+    private static $links = array();
+    private static $link_name = 'default';
+
+    /**
+     * 默认redis前缀
+     */
+    public static $prefix = "phpspider";
+
+    public static $error = "";
 }
