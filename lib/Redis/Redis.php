@@ -69,4 +69,17 @@ class Redis
 
         return self::$links[self::$link_name];
     }
+
+    /**
+     * clear_link
+     */
+    public static function clear_link()
+    {
+        if (self::$links) {
+            foreach(self::$links as $k => $v) {
+                $v->close();
+                unset(self::$links[$k]);
+            }
+        }
+    }
 }
