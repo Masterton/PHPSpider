@@ -82,4 +82,26 @@ class Redis
             }
         }
     }
+
+    /**
+     * set_connect
+     */
+    public static function set_connect($link_name, $config = array())
+    {
+        self::$link_name = $link_name;
+        if (!empty($config)) {
+            self::$configs[self::$link_name] = $config;
+        } else {
+            if (empty(self::$configs[self::$link_name])) {
+                throw new Exception("You not set a config array for connect!");
+            }
+        }
+        // print_r(self::$configs);
+
+        // 先断开原来的连接
+        // if ( !empty(self::$links[self::$link_name]) ) {
+            // self::$links[self::$link_name]->close();
+            // self::$links[self::$link_name] = null;
+        // }
+    }
 }
