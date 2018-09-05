@@ -104,4 +104,13 @@ class Redis
             // self::$links[self::$link_name] = null;
         // }
     }
+
+    /**
+     * set_connect_default
+     */
+    public static function set_connect_default()
+    {
+        $config = self::_get_default_config();
+        self::set_connect('default', $config);
+    }
 }
