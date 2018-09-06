@@ -113,4 +113,19 @@ class Redis
         $config = self::_get_default_config();
         self::set_connect('default', $config);
     }
+
+    /**
+    * 获取默认配置
+    */
+    protected static function _get_default_config()
+    {
+        if (empty(self::$configs['default'])) {
+            if (!is_array($GLOBALS['config']['redis'])) {
+                exit('cls_redis.php _get_default_config()' . '没有redis配置');
+                // You not set a config array for connect\nPlease check the configuration file config/inc_config.php
+            }
+            self::$configs['default'] = $GLOBALS['config']['redis'];
+        }
+        return self::$configs['default'];
+    }
 }
