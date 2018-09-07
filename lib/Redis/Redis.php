@@ -128,4 +128,38 @@ class Redis
         }
         return self::$configs['default'];
     }
+
+    /**
+     * set
+     * 
+     * @param mixed $key    键
+     * @param mixed $value  值
+     * @param int $expire   过期时间，单位：秒
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    public static function set($key, $value, $expire = 0)
+    {
+        self::init();
+        try {
+            if (self::$links[self::$link_name]) {
+                if ($expire > 0) {
+                    return self::$links[self::$link_name]->setex($key, $expire, $value);
+                } else {
+                    return self::$links[self::$link_name]->set($key, $value);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::set($key, $value, $expire);
+            }
+        }
+        return NULL;
+    }
 }
