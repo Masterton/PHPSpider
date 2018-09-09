@@ -201,4 +201,49 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * 锁
+     * 默认锁1秒
+     * 
+     * @param mixed $name   锁的标识名
+     * @param mixed $value  锁的值,貌似没啥意义
+     * @param int $expire   当前锁的最大生存时间(秒)，必须大于0，超过生存时间系统会自动强制释放锁
+     * @param int $interval   获取锁失败后挂起再试的时间间隔(微秒)
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-30 23:56
+     */
+    public static function lock($name, $value = 1, $expire = 5, $interval = 100000)
+    {
+        if ($name == null) return false;
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                $key = "Lock:{$name}";
+                while (true) {
+                    // 因为 setnx 没有 expire 设置，所以还是用set
+                    //$result = self::$links[self::$link_name]->setnx($key, $value);
+                    $result = self::$links[self::$link_name]->set($key, $value, array('nx', 'ex' => $expire));
+                    if ($result != false) {
+                        return true;
+                    }
+
+                    usleep($interval);
+                }
+                return false;
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                // 睡眠100毫秒
+                usleep(100000);
+                return self::lock($name, $value, $expire, $interval);
+            }
+        }
+        return false;
+    }
 }
