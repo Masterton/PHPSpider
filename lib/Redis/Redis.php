@@ -246,4 +246,13 @@ class Redis
         }
         return false;
     }
+
+    /**
+     * unlock
+     */
+    public static function unlock($name)
+    {
+        $key = "Lock:{$name}";
+        return self::del($key);
+    }
 }
