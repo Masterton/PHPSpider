@@ -311,4 +311,42 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * type 返回值的类型
+     * 
+     * @param mixed $key
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    public static function type($key)
+    {
+        self::init();
+
+        $types = array(
+            '0' => 'set',
+            '1' => 'string',
+            '3' => 'list',
+        );
+
+        try {
+            if ( self::$links[self::$link_name] ) {
+                $type = self::$links[self::$link_name]->type($key);
+                if (isset($types[$type]) {
+                    return $types[$type];
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::type($key);
+            }
+        }
+        return NULL;
+    }
 }
