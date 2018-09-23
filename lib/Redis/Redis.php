@@ -557,4 +557,31 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * flushall 删除所有数据库中的所有key
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-18 11:28
+     */
+    public static function flushall()
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                return self::$links[self::$link_name]->flushall();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::flushall();
+            }
+        }
+        return NULL;
+    }
 }
