@@ -584,4 +584,36 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * save 将数据保存到磁盘
+     * 
+     * @param mixed $is_bgsave 将数据异步保存到磁盘
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-18 11:28
+     */
+    public static function save($is_bgsave = false)
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                if (!$is_bgsave) {
+                    return self::$links[self::$link_name]->save();
+                } else {
+                    return self::$links[self::$link_name]->bgsave();
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::save($is_bgsave);
+            }
+        }
+        return NULL;
+    }
 }
