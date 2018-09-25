@@ -616,4 +616,31 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * info 提供服务器的信息和统计
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-18 11:28
+     */
+    public static function info()
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                return self::$links[self::$link_name]->info();
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::info();
+            }
+        }
+        return NULL;
+    }
 }
