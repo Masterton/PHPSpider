@@ -643,4 +643,35 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * slowlog 慢查询日志
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-18 11:28
+     */
+    public static function slowlog($command = 'get', $len = 0)
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                if (!empty($len)) {
+                    return $redis->slowlog($command, $len);
+                } else {
+                    return $redis->slowlog($command);
+                }
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::slowlog($command, $len);
+            }
+        }
+        return NULL;
+    }
 }
