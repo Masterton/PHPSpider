@@ -843,4 +843,33 @@ class Redis
         }
         return NULL;
     }
+
+    /**
+     * lget 获取数据
+     * 
+     * @param mixed $key
+     * @param int $index
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    public static function lget($key, $index = 0)
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                return self::$links[self::$link_name]->lget($key, $index);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::lget($key, $index);
+            }
+        }
+        return NULL;
+    }
 }
