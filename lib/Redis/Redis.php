@@ -333,7 +333,7 @@ class Redis
         try {
             if ( self::$links[self::$link_name] ) {
                 $type = self::$links[self::$link_name]->type($key);
-                if (isset($types[$type]) {
+                if (isset($types[$type])) {
                     return $types[$type];
                 }
             }
@@ -901,5 +901,36 @@ class Redis
             }
         }
         return NULL;
+    }
+
+    /**
+     * rlist 从右边弹出 $length 长度数据，并删除数据
+     * 
+     * @param mixed $key
+     * @param mixed $length
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    public static function rlist($key, $length)
+    {
+        $queue_length = self::lsize($key);
+        // 如果队列中有数据
+        if ($queue_length > 0) {
+            $list = array();
+            $count = ($queue_length >= $length) ? $length : $queue_length;
+            for ($i = 0; $i < $count; $i++) {
+                $data = self::rpop($key);
+                if ($data === false) {
+                    continue;
+                }
+
+                $list[] = $data;
+            }
+            return $list;
+        } else {
+            // 没有数据返回NULL
+            return NULL;
+        }
     }
 }
