@@ -933,4 +933,39 @@ class Redis
             return NULL;
         }
     }
+
+    /**
+     * keys
+     * 
+     * @param mixed $key
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     * 查找符合给定模式的key。
+     * KEYS *命中数据库中所有key。
+     * KEYS h?llo命中hello， hallo and hxllo等。
+     * KEYS h*llo命中hllo和heeeeello等。
+     * KEYS h[ae]llo命中hello和hallo，但不命中hillo。
+     * 特殊符号用"\"隔开
+     * 因为这个类加了OPT_PREFIX前缀，所以并不能真的列出redis所有的key，需要的话，要把前缀去掉
+     */
+    public static function keys($key)
+    {
+        self::init();
+        try {
+            if ( self::$links[self::$link_name] ) {
+                return self::$links[self::$link_name]->keys($key);
+            }
+        } catch (Exception $e) {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) {
+                self::$links[self::$link_name]->close();
+                self::$links[self::$link_name] = null;
+                usleep(100000);
+                return self::keys($key);
+            }
+        }
+        return NULL;
+    }
 }
