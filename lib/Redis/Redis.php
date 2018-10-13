@@ -1055,4 +1055,30 @@ class Redis
         }
         return false;
     }
+
+    /**
+     * ping 检查当前redis是否存在且是否可以连接上
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    /*protected static function ping()
+    {
+        if ( empty (self::$links[self::$link_name]) )
+        {
+            return false;
+        }
+        return self::$links[self::$link_name]->ping() == '+PONG';
+    }*/
+
+    public static function encode($value)
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function decode($value)
+    {
+        return json_decode($value, true);
+    }
 }
