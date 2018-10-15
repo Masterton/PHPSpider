@@ -23,4 +23,9 @@ class RedisClient
             throw new Exception("{$errno} - {$errstr}");
         }
     }
+
+    public function __destruct()
+    {
+        fclose($this->redis_socket);
+    }
 }
