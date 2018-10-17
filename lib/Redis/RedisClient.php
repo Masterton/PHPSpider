@@ -28,4 +28,20 @@ class RedisClient
     {
         fclose($this->redis_socket);
     }
+
+    public function __call($name, $args) 
+    {
+        $crlf = "\r\n";
+        array_unshift($args, $name);
+        $command = '*' . count($args) . $crlf;
+        foreach ($args as $arg) {
+            $command .= '$' . strlen($arg) . $crlf . $arg . $crlf;
+        }
+        //echo $command."\n";
+        $fwrite = fwrite($this->redis_socket, $command);
+        if ($fwrite === FALSE || $fwrite <= 0) {
+            throw new Exception('Failed to write entire command to stream');
+        }
+        return $this->read_response();
+    }
 }
