@@ -48,38 +48,30 @@ class RedisClient
     private function read_response() 
     {
         $reply = trim(fgets($this->redis_socket, 1024));
-        switch (substr($reply, 0, 1))
-        {
+        switch (substr($reply, 0, 1)) {
         case '-':
             throw new Exception(trim(substr($reply, 1)));
             break;
         case '+':
             $response = substr(trim($reply), 1);
-            if ($response === 'OK') 
-            {
+            if ($response === 'OK') {
                 $response = TRUE;
             }
             break;
         case '$':
             $response = NULL;
-            if ($reply == '$-1') 
-            {
+            if ($reply == '$-1') {
                 break;
             }
             $read = 0;
             $size = intval(substr($reply, 1));
-            if ($size > 0) 
-            {
-                do 
-                {
+            if ($size > 0) {
+                do {
                     $block_size = ($size - $read) > 1024 ? 1024 : ($size - $read);
                     $r = fread($this->redis_socket, $block_size);
-                    if ($r === FALSE) 
-                    {
+                    if ($r === FALSE) {
                         throw new Exception('Failed to read response from stream');
-                    }
-                    else 
-                    {
+                    } else {
                         $read += strlen($r);
                         $response .= $r;
                     }
@@ -91,13 +83,11 @@ class RedisClient
             /* Multi-bulk reply */
         case '*':
             $count = intval(substr($reply, 1));
-            if ($count == '-1') 
-            {
+            if ($count == '-1') {
                 return NULL;
             }
             $response = array();
-            for ($i = 0; $i < $count; $i++) 
-            {
+            for ($i = 0; $i < $count; $i++) {
                 $response[] = $this->read_response();
             }
             break;
