@@ -102,3 +102,8 @@ class RedisClient
         return $response;
     }
 }
+
+// $redis = new cls_redis_client();
+// var_dump($redis->auth("foobared"));
+// var_dump($redis->set("name",'abc'));
+// var_dump($redis->get("name"));
