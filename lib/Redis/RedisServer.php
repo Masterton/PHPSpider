@@ -13,5 +13,8 @@ namespace PHPSpider\Lib\Redis;
  */
 class RedisServer
 {
-    // TODO
+    private $socket = false;
+    private $process_num = 3;
+    public $redis_kv_data = array();
+    public $onMessage = null;
 }
