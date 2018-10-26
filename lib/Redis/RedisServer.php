@@ -64,4 +64,9 @@ class RedisServer
         }
         return $line;
     }
+
+    private function start_worker_process()
+    {
+        // TODO
+    }
 }
