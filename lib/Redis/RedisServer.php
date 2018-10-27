@@ -67,6 +67,48 @@ class RedisServer
 
     private function start_worker_process()
     {
-        // TODO
+        $pid = pcntl_fork();
+        switch ($pid) {
+        case -1:
+            echo "fork error : {$i} \r\n";
+            exit;
+        case 0:
+            while ( true ) {
+                echo  "PID ".posix_getpid()." waiting...\n";
+                // 堵塞等待
+                $conn = stream_socket_accept($this->socket, -1);
+                if ( !$conn )
+                {
+                    continue;
+                }
+                //"*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n"
+                while( true )
+                {
+                    $arr = $this->parse_resp($conn);
+                    if ( is_array($arr) ) 
+                    {
+                        if ($this->onMessage) 
+                        {
+                            call_user_func($this->onMessage, $conn, $arr);
+                        }
+                    }
+                    else if ( $arr )
+                    {
+                        if ($this->onMessage) 
+                        {
+                            call_user_func($this->onMessage, $conn, $arr);
+                        }
+                    }
+                    else
+                    {
+                        fclose($conn);
+                        break;
+                    }
+                }
+            }
+        default:
+            $this->pids[$pid] = $pid;
+            break;
+        }
     }
 }
