@@ -77,30 +77,23 @@ class RedisServer
                 echo  "PID ".posix_getpid()." waiting...\n";
                 // 堵塞等待
                 $conn = stream_socket_accept($this->socket, -1);
-                if ( !$conn )
-                {
+                if ( !$conn ) {
                     continue;
                 }
                 //"*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n"
-                while( true )
-                {
+                while( true ) {
                     $arr = $this->parse_resp($conn);
-                    if ( is_array($arr) ) 
-                    {
+                    if ( is_array($arr) ) {
                         if ($this->onMessage) 
                         {
                             call_user_func($this->onMessage, $conn, $arr);
                         }
-                    }
-                    else if ( $arr )
-                    {
+                    } else if ( $arr ) {
                         if ($this->onMessage) 
                         {
                             call_user_func($this->onMessage, $conn, $arr);
                         }
-                    }
-                    else
-                    {
+                    } else {
                         fclose($conn);
                         break;
                     }
