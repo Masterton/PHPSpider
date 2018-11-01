@@ -105,4 +105,30 @@ class RedisServer
                 break;
         }
     }
+
+    public function run()
+    {
+        for($i = 1; $i <= $this->process_num; $i++)
+        {
+            $this->start_worker_process();
+        }
+
+        while( true )
+        {
+            foreach ($this->pids as $i => $pid) 
+            {
+                if($pid) 
+                {
+                    $res = pcntl_waitpid($pid, $status,WNOHANG);
+
+                    if ( $res == -1 || $res > 0 )
+                    {
+                        $this->start_worker_process();
+                        unset($this->pids[$pid]);
+                    }
+                }
+            }
+            sleep(1);
+        }
+    }
 }
