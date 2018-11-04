@@ -126,3 +126,34 @@ class RedisServer
         }
     }
 }
+
+$server = new cls_redis_server();
+$server->onMessage = function($conn, $info) use($server)
+{
+    if ( is_array($info) )
+    {
+        $command = strtoupper($info[0]);
+        if ( $command == "SET" )
+        {
+            $key = $info[1];
+            $val = $info[2];
+            $server->redis_kv_data[$key] = $val;
+            fwrite($conn, "+OK\r\n");
+        }
+        else if ( $command == "GET" )
+        {
+            $key = $info[1];
+            $val = isset($server->redis_kv_data[$key]) ? $server->redis_kv_data[$key] : '';
+            fwrite($conn, "$".strlen($val)."\r\n".$val."\r\n");
+        }
+        else
+        {
+            fwrite($conn,"+OK\r\n");
+        }
+    }
+    else
+    {
+        fwrite($conn,"+OK\r\n");
+    }
+};
+$server->run();
