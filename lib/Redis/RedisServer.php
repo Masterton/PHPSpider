@@ -142,10 +142,10 @@ $server->onMessage = function($conn, $info) use($server)
             $val = isset($server->redis_kv_data[$key]) ? $server->redis_kv_data[$key] : '';
             fwrite($conn, "$".strlen($val)."\r\n".$val."\r\n");
         } else {
-            fwrite($conn,"+OK\r\n");
+            fwrite($conn, "+OK\r\n");
         }
     } else {
-        fwrite($conn,"+OK\r\n");
+        fwrite($conn, "+OK\r\n");
     }
 };
 $server->run();
