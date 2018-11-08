@@ -140,7 +140,7 @@ $server->onMessage = function($conn, $info) use($server)
         } else if ($command == "GET") {
             $key = $info[1];
             $val = isset($server->redis_kv_data[$key]) ? $server->redis_kv_data[$key] : '';
-            fwrite($conn, "$".strlen($val)."\r\n".$val."\r\n");
+            fwrite($conn, "$" . strlen($val) . "\r\n" . $val . "\r\n");
         } else {
             fwrite($conn, "+OK\r\n");
         }
