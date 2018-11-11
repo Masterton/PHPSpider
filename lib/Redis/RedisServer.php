@@ -132,7 +132,8 @@ $server->onMessage = function($conn, $info) use($server)
 {
     if (is_array($info)) {
         $command = strtoupper($info[0]);
-        if ($command == "SET") {
+        if ($command == "SET")
+        {
             $key = $info[1];
             $val = $info[2];
             $server->redis_kv_data[$key] = $val;
