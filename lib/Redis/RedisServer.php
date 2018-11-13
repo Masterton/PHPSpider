@@ -130,7 +130,8 @@ class RedisServer
 $server = new cls_redis_server();
 $server->onMessage = function($conn, $info) use($server)
 {
-    if (is_array($info)) {
+    if (is_array($info))
+    {
         $command = strtoupper($info[0]);
         if ($command == "SET")
         {
