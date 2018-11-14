@@ -128,7 +128,7 @@ class RedisServer
 }
 
 $server = new cls_redis_server();
-$server->onMessage = function($conn, $info) use($server)
+$server->onMessage = function($conn, $info) use ($server)
 {
     if (is_array($info))
     {
